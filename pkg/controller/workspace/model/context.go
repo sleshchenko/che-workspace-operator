@@ -19,4 +19,5 @@ type WorkspaceContext struct {
 	Started        bool
 	CheApiExternal string
 	RoutingClass   string
+	Creator        string
 }

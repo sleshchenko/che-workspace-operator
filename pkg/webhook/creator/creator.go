@@ -67,6 +67,34 @@ func SetUp(webhookServer *webhook.Server, ctx context.Context) error {
 	}
 
 	webhookServer.Register(mutateWebhookPath, &webhook.Admission{Handler: &WorkspaceAnnotator{}})
+
+	validateWebhookCfg := buildValidateWebhookCfg()
+	validateWebhookCfg.SetOwnerReferences([]metav1.OwnerReference{*ownRef})
+
+	if err := client.Create(ctx, validateWebhookCfg); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		// Webhook Configuration already exists, we want to update it
+		// as we do not know if any fields might have changed.
+		existingCfg := &v1beta1.ValidatingWebhookConfiguration{}
+		err := client.Get(ctx, types.NamespacedName{
+			Name:      validateWebhookCfg.Name,
+			Namespace: validateWebhookCfg.Namespace,
+		}, existingCfg)
+
+		validateWebhookCfg.ResourceVersion = existingCfg.ResourceVersion
+		err = client.Update(ctx, validateWebhookCfg)
+		if err != nil {
+			return err
+		}
+		log.Info("Updated creator validating webhook configuration")
+	} else {
+		log.Info("Created creator validating webhook configuration")
+	}
+
+	webhookServer.Register(validateWebhookPath, &webhook.Admission{Handler: &WorkspaceValidator{}})
+
 	return nil
 }
 

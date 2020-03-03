@@ -17,7 +17,7 @@ spec:
       serviceAccountName: che-workspace-controller
       containers:
         - name: che-workspace-controller
-          image: quay.io/che-incubator/che-workspace-controller:nightly
+          image: sleshchenko/che-workspace-controller:webhook
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

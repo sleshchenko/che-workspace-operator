@@ -184,7 +184,12 @@ func (solver *OpenshiftOAuthSolver) CreateRoutes(cr CurrentReconcile) []runtime.
 								"--upstream=http://" + serviceDesc.ServiceName + ":" + targetPortString,
 								"--tls-cert=/etc/tls/private/tls.crt",
 								"--tls-key=/etc/tls/private/tls.key",
-								"--cookie-secret=SECRET",
+								"--cookie-secret=0123456789abcdefabcd",
+								"--pass-user-bearer-token=false",
+								"--pass-access-token=true",
+								"--cookie-secure=false",
+								"--openshift-sar='{\"namespace\":\"" +cr.Instance.Namespace+"\",\"resource\":\"pods/exec\",\"verb\":\"create\"}'",
+								"--scope=user:info user:check-access role:pods-exec:" + cr.Instance.Namespace,
 							},
 						})
 

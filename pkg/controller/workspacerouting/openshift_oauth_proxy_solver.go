@@ -188,7 +188,7 @@ func (solver *OpenshiftOAuthSolver) CreateRoutes(cr CurrentReconcile) []runtime.
 								"--pass-user-bearer-token=false",
 								"--pass-access-token=true",
 								"--cookie-secure=false",
-								"--openshift-sar='{\"namespace\":\"" +cr.Instance.Namespace+"\",\"resource\":\"pods/exec\",\"verb\":\"create\"}'",
+								//"--openshift-sar='{\"namespace\":\"" +cr.Instance.Namespace+"\",\"resource\":\"pods/exec\",\"verb\":\"create\"}'",
 								"--scope=user:info user:check-access role:pods-exec:" + cr.Instance.Namespace,
 							},
 						})

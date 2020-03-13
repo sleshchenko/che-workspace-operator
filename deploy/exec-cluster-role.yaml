@@ -15,6 +15,7 @@ rules:
   resources:
     - pods/exec
   verbs:
+    #Revise which verbs do we really need
     - create
     - delete
     - deletecollection

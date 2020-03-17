@@ -89,7 +89,7 @@ func (a *WorkspaceAnnotator) handleUpdate(ctx context.Context, req admission.Req
 	}
 
 	if newCreator != oldCreator {
-		return admission.Denied(fmt.Sprintf("annotation %s is immutable and must have value: %q", model.WorkspaceCreatorAnnotation, oldCreator))
+		return admission.Denied(fmt.Sprintf("annotation '%s' is assigned once workspace is created and is immutable", model.WorkspaceCreatorAnnotation))
 	}
 
 	return admission.Allowed("new workspace has the same creator as old one")

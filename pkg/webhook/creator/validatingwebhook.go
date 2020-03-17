@@ -28,13 +28,15 @@ type WorkspaceValidator struct {
 }
 
 func (a *WorkspaceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	client, err := createClient()
+	c, err := createClient()
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
+	log.Info("Validating if user has access to pod", "user", req.UserInfo.UID, "pod", req.Name)
+
 	p := v1.Pod{}
-	err = client.Get(ctx, types.NamespacedName{
+	err = c.Get(ctx, types.NamespacedName{
 		Name:      req.Name,
 		Namespace: req.Namespace,
 	}, &p)
@@ -46,12 +48,22 @@ func (a *WorkspaceValidator) Handle(ctx context.Context, req admission.Request) 
 	if p.Annotations == nil {
 		p.Annotations = map[string]string{}
 	}
-	creator := p.Annotations[model.WorkspaceCreatorAnnotation]
+
+	_, ok := p.Labels[model.WorkspaceIDLabel]
+	if !ok {
+		return admission.Allowed("It's not workspace related pod")
+	}
+
+	creator, ok := p.Annotations[model.WorkspaceCreatorAnnotation]
+	if !ok {
+		return admission.Denied("The only creator info is missing")
+	}
+
 	if creator != req.UserInfo.UID {
 		return admission.Denied("The only workspace creator has exec access")
 	}
 
-	return admission.Allowed("Did nothing")
+	return admission.Allowed("The current user and creator are matched")
 }
 
 // WorkspaceAnnotator implements inject.Client.

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	validateWebhookCfgName       = "validate-workspace-admission-hooks"
+	validateWebhookCfgName       = "workspace.che.eclipse.org"
 	validateWebhookPath          = "/validate-workspaces"
 	validateWebhookFailurePolicy = v1beta1.Fail
 )

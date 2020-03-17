@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	mutateWebhookCfgName       = "mutate-workspace-admission-hooks"
+	mutateWebhookCfgName       = "workspace.che.eclipse.org"
 	mutateWebhookPath          = "/mutate-workspaces"
 	mutateWebhookFailurePolicy = v1beta1.Fail
 )

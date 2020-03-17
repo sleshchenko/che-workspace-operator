@@ -28,14 +28,14 @@ mkdir -p $TARGET_FOLDER
 echo "Copying generated TLS certificates from docker container"
 docker run --name 'webhook-certs' generate-webhook-server-certs:latest exit 0
 docker cp webhook-certs:ca/. ${TARGET_FOLDER}/
-docker rm 'webhook-certs'
-
-kubectl delete secret -n che-workspace-controller webhook-server-tls --ignore-not-found=true
-kubectl -n che-workspace-controller create secret tls webhook-server-tls \
-    --cert "$TARGET_FOLDER/webhook-server-tls.crt" \
-    --key "$TARGET_FOLDER/webhook-server-tls.key"
-CA_BASE_64_CONTENT="$(openssl base64 -A <"${TARGET_FOLDER}/ca.crt")"
-kubectl patch -n che-workspace-controller secret webhook-server-tls -p="{\"data\":{\"ca.crt\": \"${CA_BASE_64_CONTENT}\"}}"
-echo "TLS certificates are stored in 'che-workspace-controller' namespace in 'webhook-server-tls' secret"
-
-rm -r ${TARGET_FOLDER}
+#docker rm 'webhook-certs'
+#
+#kubectl delete secret -n che-workspace-controller webhook-server-tls --ignore-not-found=true
+#kubectl -n che-workspace-controller create secret tls webhook-server-tls \
+#    --cert "$TARGET_FOLDER/webhook-server-tls.crt" \
+#    --key "$TARGET_FOLDER/webhook-server-tls.key"
+#CA_BASE_64_CONTENT="$(openssl base64 -A <"${TARGET_FOLDER}/ca.crt")"
+#kubectl patch -n che-workspace-controller secret webhook-server-tls -p="{\"data\":{\"ca.crt\": \"${CA_BASE_64_CONTENT}\"}}"
+#echo "TLS certificates are stored in 'che-workspace-controller' namespace in 'webhook-server-tls' secret"
+#
+#rm -r ${TARGET_FOLDER}

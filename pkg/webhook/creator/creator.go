@@ -18,7 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -29,14 +29,14 @@ var log = logf.Log.WithName("webhook.creator")
 //SetUp set up mutate webhook that manager creator annotations for workspaces
 func SetUp(webhookServer *webhook.Server, ctx context.Context) error {
 	log.Info("Configuring creator mutating webhook")
-	client, err := createClient()
+	c, err := createClient()
 	if err != nil {
 		return err
 	}
 
 	mutateWebhookCfg := buildMutateWebhookCfg()
 
-	ownRef, err := ownerref.FindControllerOwner(ctx, client)
+	ownRef, err := ownerref.FindControllerOwner(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -44,20 +44,20 @@ func SetUp(webhookServer *webhook.Server, ctx context.Context) error {
 	//TODO Investigate if we can block it. The same issue is valid for Deployment owner
 	mutateWebhookCfg.SetOwnerReferences([]metav1.OwnerReference{*ownRef})
 
-	if err := client.Create(ctx, mutateWebhookCfg); err != nil {
+	if err := c.Create(ctx, mutateWebhookCfg); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return err
 		}
 		// Webhook Configuration already exists, we want to update it
 		// as we do not know if any fields might have changed.
 		existingCfg := &v1beta1.MutatingWebhookConfiguration{}
-		err := client.Get(ctx, types.NamespacedName{
+		err := c.Get(ctx, types.NamespacedName{
 			Name:      mutateWebhookCfg.Name,
 			Namespace: mutateWebhookCfg.Namespace,
 		}, existingCfg)
 
 		mutateWebhookCfg.ResourceVersion = existingCfg.ResourceVersion
-		err = client.Update(ctx, mutateWebhookCfg)
+		err = c.Update(ctx, mutateWebhookCfg)
 		if err != nil {
 			return err
 		}
@@ -70,21 +70,23 @@ func SetUp(webhookServer *webhook.Server, ctx context.Context) error {
 
 	validateWebhookCfg := buildValidateWebhookCfg()
 	validateWebhookCfg.SetOwnerReferences([]metav1.OwnerReference{*ownRef})
+	res v1beta1.MutatingWebhookConfiguration[]
+    c.List(ctx,res , )
 
-	if err := client.Create(ctx, validateWebhookCfg); err != nil {
+	if err := c.Create(ctx, validateWebhookCfg); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return err
 		}
 		// Webhook Configuration already exists, we want to update it
 		// as we do not know if any fields might have changed.
 		existingCfg := &v1beta1.ValidatingWebhookConfiguration{}
-		err := client.Get(ctx, types.NamespacedName{
+		err := c.Get(ctx, types.NamespacedName{
 			Name:      validateWebhookCfg.Name,
 			Namespace: validateWebhookCfg.Namespace,
 		}, existingCfg)
 
 		validateWebhookCfg.ResourceVersion = existingCfg.ResourceVersion
-		err = client.Update(ctx, validateWebhookCfg)
+		err = c.Update(ctx, validateWebhookCfg)
 		if err != nil {
 			return err
 		}
@@ -99,16 +101,16 @@ func SetUp(webhookServer *webhook.Server, ctx context.Context) error {
 }
 
 //TODO It's copied/pasted from embedded_registry. Consider move it to util class
-func createClient() (crclient.Client, error) {
+func createClient() (client.Client, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := crclient.New(cfg, crclient.Options{})
+	c, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	return c, nil
 }

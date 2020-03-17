@@ -1,0 +1,3 @@
+domain: my.domain
+repo: github.com/che-incubator/che-workspace-operator
+version: "2"

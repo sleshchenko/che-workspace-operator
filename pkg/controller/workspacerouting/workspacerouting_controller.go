@@ -19,7 +19,9 @@ import (
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspacerouting/solvers"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	oauthv1 "github.com/openshift/api/oauth/v1"
 	routeV1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -34,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+const workspaceRoutingFinalizer = "workspacerouting.workspace.eclipse.org"
 
 var log = logf.Log.WithName("controller_workspacerouting")
 
@@ -91,6 +95,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err != nil {
 			return err
 		}
+
+		// TODO probably it does not work correctly since WorkspaceRouting is namespaced and OAuthClient cluster-scoped
+		// checked - reconcile loop is not triggered after removing OAuthClient
+		err = c.Watch(&source.Kind{Type: &oauthv1.OAuthClient{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &workspacev1alpha1.WorkspaceRouting{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -125,6 +139,37 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// Check if the WorkspaceRouting instance is marked to be deleted, which is
+	// indicated by the deletion timestamp being set.
+	isRoutingMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	if isRoutingMarkedToBeDeleted {
+		if contains(instance.GetFinalizers(), workspaceRoutingFinalizer) {
+			// Run finalization logic for workspaceRoutingFinalizer. If the
+			// finalization logic fails, don't remove the finalizer so
+			// that we can retry during the next reconciliation.
+			if err := r.finalizeWorkspaceRouting(reqLogger, instance); err != nil {
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Finalizers are done")
+
+			// Remove workspaceRoutingFinalizer. Once all finalizers have been
+			// removed, the object will be deleted.
+			instance.SetFinalizers(remove(instance.GetFinalizers(), workspaceRoutingFinalizer))
+			err := r.client.Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// Add finalizer for this CR
+	if !contains(instance.GetFinalizers(), workspaceRoutingFinalizer) {
+		if err := r.addFinalizer(reqLogger, instance); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	workspaceMeta := solvers.WorkspaceMetadata{
@@ -169,6 +214,12 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		}
 	}
 
+	oauthClient := routingObjects.OAuthClient
+	err = controllerutil.SetControllerReference(instance, oauthClient, r.scheme)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	servicesInSync, err := r.syncServices(instance, services)
 	if err != nil || !servicesInSync {
 		reqLogger.Info("Services not in sync")
@@ -187,7 +238,34 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{Requeue: true}, err
 	}
 
+	oauthClientInSync, err := r.syncOAuthClient(instance, *oauthClient)
+	if err != nil || !oauthClientInSync {
+		reqLogger.Info("OAuthClient not in sync")
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	return reconcile.Result{}, r.reconcileStatus(instance, routingObjects)
+}
+
+func (r *ReconcileWorkspaceRouting) finalizeWorkspaceRouting(reqLogger logr.Logger, wr *workspacev1alpha1.WorkspaceRouting) error {
+	// TODO(user): Add the cleanup steps that the operator
+	// needs to do before the CR can be deleted. Examples
+	// of finalizers include performing backups and deleting
+	// resources that are not owned by this CR, like a PVC.
+	return r.deleteOAuthClients(wr)
+}
+
+func (r *ReconcileWorkspaceRouting) addFinalizer(reqLogger logr.Logger, m *workspacev1alpha1.WorkspaceRouting) error {
+	reqLogger.Info("Adding Finalizer for the WorkspaceRouting")
+	m.SetFinalizers(append(m.GetFinalizers(), workspaceRoutingFinalizer))
+
+	// Update CR
+	err := r.client.Update(context.TODO(), m)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update WorkspaceRouting with finalizer")
+		return err
+	}
+	return nil
 }
 
 func (r *ReconcileWorkspaceRouting) reconcileStatus(instance *workspacev1alpha1.WorkspaceRouting, routingObjects solvers.RoutingObjects) error {
@@ -214,4 +292,22 @@ func getSolverForRoutingClass(routingClass workspacev1alpha1.WorkspaceRoutingCla
 	default:
 		return nil, fmt.Errorf("routing class %s not supported", routingClass)
 	}
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+func remove(list []string, s string) []string {
+	for i, v := range list {
+		if v == s {
+			list = append(list[:i], list[i+1:]...)
+		}
+	}
+	return list
 }

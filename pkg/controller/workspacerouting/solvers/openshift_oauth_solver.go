@@ -14,6 +14,7 @@ package solvers
 
 import (
 	"fmt"
+	oauthv1 "github.com/openshift/api/oauth/v1"
 
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/common"
@@ -65,12 +66,31 @@ func (s *OpenShiftOAuthSolver) GetSpecObjects(spec v1alpha1.WorkspaceRoutingSpec
 		exposedEndpoints[machineName] = append(exposedEndpoints[machineName], machineEndpoints...)
 	}
 
+	var publicURls []string
+	for _, route := range routes {
+		publicURls = append(publicURls, "https://"+route.Spec.Host+"/oauth/callback")
+	}
+
+	oauthClient := &oauthv1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: workspaceMeta.WorkspaceId + "-oauth-client",
+			Labels: map[string]string{
+				config.WorkspaceIDLabel: workspaceMeta.WorkspaceId,
+			},
+		},
+		GrantMethod: oauthv1.GrantHandlerPrompt,
+		//TODO Generate secret for each instance
+		Secret:       "1234567890",
+		RedirectURIs: publicURls,
+	}
+
 	return RoutingObjects{
 		Services:         services,
 		Ingresses:        defaultIngresses,
 		Routes:           routes,
 		PodAdditions:     podAdditions,
 		ExposedEndpoints: exposedEndpoints,
+		OAuthClient:      oauthClient,
 	}
 }
 

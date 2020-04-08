@@ -58,5 +58,9 @@ func CommonEnvironmentVariables(workspaceName, workspaceId, namespace string) []
 			Name:  "USE_BEARER_TOKEN",
 			Value: config.ControllerCfg.GetWebhooksEnabled(),
 		},
+		{
+			Name:  "LOG_LEVEL",
+			Value: "debug",
+		},
 	}
 }

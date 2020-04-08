@@ -14,6 +14,7 @@ package solvers
 
 import (
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
+	oauthv1 "github.com/openshift/api/oauth/v1"
 	routeV1 "github.com/openshift/api/route/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -25,6 +26,7 @@ type RoutingObjects struct {
 	Routes           []routeV1.Route
 	PodAdditions     *v1alpha1.PodAdditions
 	ExposedEndpoints map[string][]v1alpha1.ExposedEndpoint
+	OAuthClient      *oauthv1.OAuthClient
 }
 
 type RoutingSolver interface {

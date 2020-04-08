@@ -12,7 +12,9 @@
 
 package v1alpha1
 
-import "k8s.io/api/core/v1"
+import (
+	"k8s.io/api/core/v1"
+)
 
 // Summary of additions that are to be merged into the main workspace deployment
 type PodAdditions struct {

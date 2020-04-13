@@ -87,6 +87,7 @@ func getProxyContainerForEndpoint(proxyEndpoint proxyEndpoint, tlsProxyVolume co
 			"--pass-user-bearer-token=false",
 			"--pass-access-token=true",
 			"--scope=user:full",
+			"--authenticated-ids=" + meta.Creator,
 		},
 	}
 }

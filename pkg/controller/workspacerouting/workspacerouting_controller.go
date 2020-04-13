@@ -174,6 +174,7 @@ func (r *ReconcileWorkspaceRouting) Reconcile(request reconcile.Request) (reconc
 
 	workspaceMeta := solvers.WorkspaceMetadata{
 		WorkspaceId:         instance.Spec.WorkspaceId,
+		Creator:             instance.Annotations[config.WorkspaceCreatorAnnotation],
 		Namespace:           instance.Namespace,
 		PodSelector:         instance.Spec.PodSelector,
 		IngressGlobalDomain: instance.Spec.IngressGlobalDomain,

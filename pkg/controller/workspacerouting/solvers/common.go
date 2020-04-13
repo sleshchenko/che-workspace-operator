@@ -28,6 +28,7 @@ type WorkspaceMetadata struct {
 	Namespace           string
 	PodSelector         map[string]string
 	IngressGlobalDomain string
+	Creator             string
 }
 
 func getDiscoverableServicesForEndpoints(endpoints map[string][]v1alpha1.Endpoint, workspaceMeta WorkspaceMetadata) []corev1.Service {

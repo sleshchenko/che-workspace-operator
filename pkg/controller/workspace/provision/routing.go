@@ -114,6 +114,9 @@ func getSpecRouting(
 		ObjectMeta: v1.ObjectMeta{
 			Name:      fmt.Sprintf("routing-%s", workspace.Status.WorkspaceId),
 			Namespace: workspace.Namespace,
+			Annotations: map[string]string{
+				config.WorkspaceCreatorAnnotation: workspace.Annotations[config.WorkspaceCreatorAnnotation],
+			},
 		},
 		Spec: v1alpha1.WorkspaceRoutingSpec{
 			WorkspaceId:         workspace.Status.WorkspaceId,

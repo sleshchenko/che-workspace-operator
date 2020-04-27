@@ -138,6 +138,10 @@ func getRouteForEndpoint(endpoint v1alpha1.Endpoint, meta WorkspaceMetadata) rou
 			Port: &routeV1.RoutePort{
 				TargetPort: targetEndpoint,
 			},
+			TLS: &routeV1.TLSConfig{
+				Termination:                   routeV1.TLSTerminationEdge,
+				InsecureEdgeTerminationPolicy: routeV1.InsecureEdgeTerminationPolicyRedirect,
+			},
 		},
 	}
 }

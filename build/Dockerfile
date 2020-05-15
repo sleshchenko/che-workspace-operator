@@ -1,4 +1,14 @@
-FROM golang:1.13.7-alpine3.11 as builder
+FROM registry.access.redhat.com/devtools/go-toolset-rhel7:1.12.12-4 as builder
+
+ENV PATH=/opt/rh/go-toolset-1.12/root/usr/bin:$PATH \
+    GOPATH=/go/
+
+USER root
+
+RUN case $(uname -m) in \
+       x86_64) ARCH="amd64" ;; \
+       s390x) ARCH="s390x";; \
+esac
 
 WORKDIR /che-workspace-operator
 

@@ -6,7 +6,6 @@
 *.so
 *.dylib
 _output
-vendor
 config/devfiles
 
 # Test binary, build with `go test -c`

@@ -12,15 +12,11 @@ esac
 
 WORKDIR /che-workspace-operator
 
-# Populate the module cache based on the go.{mod,sum} files.
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
-
-# copy the rest of the sources code
 COPY . .
+
 # compile workspace controller binaries
 RUN CGO_ENABLED=0 GOOS=linux go build \
+  -mod=vendor \
   -o _output/bin/che-workspace-controller \
   -gcflags all=-trimpath=/ \
   -asmflags all=-trimpath=/ \

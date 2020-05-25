@@ -14,10 +14,8 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/che-incubator/che-workspace-operator/pkg/config"
+
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"os"
 
 	"github.com/che-incubator/che-workspace-operator/internal/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -34,10 +32,9 @@ func InitWebhookServer(ctx context.Context) error {
 	}
 
 	ns, err := k8sutil.GetOperatorNamespace()
-	if err == k8sutil.ErrRunLocal{
-		ns = os.Getenv("WATCH_NAMESPACE")
-		log.Info(fmt.Sprintf("Running operator in local mode; watching namespace %s", config.ConfigMapReference.Namespace))
-	}	else if err != nil {
+	if err == k8sutil.ErrRunLocal {
+		return errors.New("operator in run in local mode and doesn't support webhooks. Disable them and rerun")
+	} else if err != nil {
 		return err
 	}
 
@@ -73,11 +70,10 @@ func syncService(ctx context.Context, crclient client.Client, namespace string) 
 		if err != nil {
 			return err
 		}
-		clusterIP := existingCfg.Spec.ClusterIP
-		existingCfg.Spec = secureService.Spec
-		existingCfg.Spec.ClusterIP = clusterIP
-
-		err = crclient.Update(ctx, existingCfg)
+		secureService.ResourceVersion = existingCfg.ResourceVersion
+		// ClusterIP is immutable and assigned by cluster
+		secureService.Spec.ClusterIP = existingCfg.Spec.ClusterIP
+		err = crclient.Update(ctx, secureService)
 		if err != nil {
 			return err
 		}
@@ -102,8 +98,7 @@ func syncConfigMap(ctx context.Context, crclient client.Client, namespace string
 		if err != nil {
 			return err
 		}
-		existingCfg.Data = secureConfigMap.Data
-		existingCfg.BinaryData = secureConfigMap.BinaryData
+		secureConfigMap.ResourceVersion = existingCfg.ResourceVersion
 		err = crclient.Update(ctx, existingCfg)
 		if err != nil {
 			return err
@@ -132,6 +127,9 @@ func updateDeployment(ctx context.Context, crclient client.Client, namespace str
 		if err = crclient.Update(ctx, deployment); err != nil {
 			return err
 		}
+		log.Info("Controller deployment is updated to make webhooks server work in TLS mode")
+	} else {
+		log.Info("Controller deployment is up to date to work in TLS mode")
 	}
 
 	return nil

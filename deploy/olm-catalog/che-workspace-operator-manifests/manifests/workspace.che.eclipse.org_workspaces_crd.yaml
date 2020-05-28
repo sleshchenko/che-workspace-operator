@@ -5,16 +5,16 @@ metadata:
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.workspaceId
-    name: Id
+    description: The workspace's unique id
+    name: Workspace ID
     type: string
-  - JSONPath: .spec.started
-    name: Enabled
-    type: boolean
   - JSONPath: .status.phase
-    name: Status
+    description: The current workspace startup phase
+    name: Phase
     type: string
   - JSONPath: .status.ideUrl
-    name: Url
+    description: Url endpoint for accessing workspace
+    name: URL
     type: string
   group: workspace.che.eclipse.org
   names:
@@ -27,32 +27,38 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: Workspace is the Schema for the workspaces API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
-          description: Desired state of the workspace
+          description: WorkspaceSpec defines the desired state of Workspace
           properties:
             devfile:
               description: 'Workspace Structure defined in the Devfile format syntax.
                 For more details see the Che 7 documentation: https://www.eclipse.org/che/docs/che-7/making-a-workspace-portable-using-a-devfile/'
               properties:
                 apiVersion:
-                  description: 'APIVersion defines the versioned schema of this representation
-                    of an object. Servers should convert recognized schemas to the
-                    latest internal value, and may reject unrecognized values. More
-                    info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+                  description: Devfile API version
                   type: string
+                attributes:
+                  description: Devfile attributes, e.g. persistVolumes
+                  properties:
+                    editorFree:
+                      type: boolean
+                    persistVolumes:
+                      type: boolean
+                  type: object
                 commands:
                   description: List of workspace-wide commands that can be associated
                     to a given component, in order to run in the related container
@@ -64,22 +70,14 @@ spec:
                             command:
                               type: string
                             component:
-                              description: The actual action command-line string
                               type: string
                             reference:
-                              description: Working directory where the command should
-                                be executed
                               type: string
                             referenceContent:
-                              description: Working directory where the command should
-                                be executed
                               type: string
                             type:
-                              description: Describes component to which given action
-                                relates
                               type: string
                             workdir:
-                              description: Describes action type
                               type: string
                           required:
                           - type
@@ -88,42 +86,31 @@ spec:
                       attributes:
                         additionalProperties:
                           type: string
-                        description: List of the actions of given command. Now the
-                          only one command must be specified in list; but there are
-                          plans to implement supporting multiple actions commands.
                         type: object
                       name:
-                        description: Additional command attributes
                         type: string
                     required:
                     - name
                     type: object
                   type: array
                 components:
-                  description: List of components (containers, plugins, ...) that
-                    will provide the workspace features
+                  description: List of components (editor, plugins, containers, ...)
+                    that will provide the workspace features
                   items:
                     properties:
                       alias:
-                        description: Describes whether projects sources should be
-                          mount to the component. `CHE_PROJECTS_ROOT`; environment
-                          variable should contains a path where projects sources are
-                          mount
                         type: string
                       args:
-                        description: The command to run in the dockerimage component
-                          instead of the default one provided in the image. Defaults
-                          to null, meaning use whatever is defined in the image.
                         items:
                           type: string
                         type: array
                       command:
-                        description: Describes volumes which should be mount to component
                         items:
                           type: string
                         type: array
                       endpoints:
                         items:
+                          description: Describes dockerimage component endpoint
                           properties:
                             attributes:
                               additionalProperties:
@@ -132,7 +119,6 @@ spec:
                             name:
                               type: string
                             port:
-                              description: The endpoint name
                               format: int64
                               type: integer
                           required:
@@ -141,13 +127,12 @@ spec:
                           type: object
                         type: array
                       env:
-                        description: Describes dockerimage component endpoints
                         items:
+                          description: Describes environment variable
                           properties:
                             name:
                               type: string
                             value:
-                              description: The environment variable name
                               type: string
                           required:
                           - name
@@ -155,46 +140,26 @@ spec:
                           type: object
                         type: array
                       id:
-                        description: The environment variables list that should be
-                          set to docker container
                         type: string
                       image:
-                        description: Describes the component FQN
                         type: string
                       memoryLimit:
-                        description: Inlined content of a file specified in field
-                          'local'
                         type: string
                       mountSources:
-                        description: 'Describes memory limit for the component. You
-                          can express memory as a plain integer or as a; fixed-point
-                          integer using one of these suffixes: E, P, T, G, M, K. You
-                          can also use the; power-of-two equivalents: Ei, Pi, Ti,
-                          Gi, Mi, Ki'
                         type: boolean
                       reference:
-                        description: Specifies the docker image that should be used
-                          for component
                         type: string
                       referenceContent:
-                        description: Describes location of Kubernetes list yaml file.
-                          Applicable only for 'kubernetes' and; 'openshift' type components
                         type: string
                       selector:
                         additionalProperties:
                           type: string
-                        description: Describes the name of the component. Should be
-                          unique per component set.
                         type: object
                       type:
-                        description: Describes the objects selector for the recipe
-                          type components. Allows to pick-up only selected; items
-                          from k8s/openshift list
                         type: string
                       volumes:
-                        description: Describes type of the component, e.g. whether
-                          it is an plugin or editor or other type
                         items:
+                          description: Describe volume that should be mount to component
                           properties:
                             containerPath:
                               type: string
@@ -209,28 +174,26 @@ spec:
                     - type
                     type: object
                   type: array
-                kind:
-                  description: 'Kind is a string value representing the REST resource
-                    this object represents. Servers may infer this from the endpoint
-                    the client submits requests to. Cannot be updated. In CamelCase.
-                    More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
-                  type: string
                 metadata:
+                  description: Devfile metadata
+                  properties:
+                    generateName:
+                      type: string
+                    name:
+                      type: string
                   type: object
                 projects:
-                  description: List of projects that should be opened in the workspace
+                  description: List of projects that should be imported into the workspace
                   items:
                     properties:
                       name:
                         type: string
                       source:
+                        description: Describes the project's source - type and location
                         properties:
                           location:
                             type: string
                           type:
-                            description: Project's source location address. Should
-                              be URL for git and github located projects, or; file://
-                              for zip.
                             type: string
                         required:
                         - location
@@ -246,27 +209,24 @@ spec:
               type: object
             routingClass:
               description: Routing class the defines how the workspace will be exposed
-                toon the external network
+                to the external network
               type: string
             started:
               description: Whether the workspace should be started or stopped
               type: boolean
           required:
-          - started
           - devfile
+          - started
           type: object
         status:
-          description: Observed state of the workspace
+          description: WorkspaceStatus defines the observed state of Workspace
           properties:
-            additionalFields:
-              additionalProperties:
-                type: string
-              description: AdditionalInfo
-              type: object
-            conditions:
-              description: Condition keeps track of all cluster conditions, if they
-                exist.
+            condition:
+              description: Conditions represent the latest available observations
+                of an object's state
               items:
+                description: WorkspaceCondition contains details for the current condition
+                  of this workspace.
                 properties:
                   lastTransitionTime:
                     description: Last time the condition transitioned from one status
@@ -282,47 +242,28 @@ spec:
                       last transition.
                     type: string
                   status:
-                    description: Status is the status of the condition. Can be True,
+                    description: Phase is the status of the condition. Can be True,
                       False, Unknown.
                     type: string
                   type:
                     description: Type is the type of the condition.
                     type: string
                 required:
-                - type
                 - status
+                - type
                 type: object
               type: array
             ideUrl:
-              description: URL at which the Editor can be joined
               type: string
-            members:
-              description: Members are the Workspace pods
-              properties:
-                ready:
-                  description: Ready are the workspace Pods that are ready The member
-                    names are based on the workspace pod deployment names
-                  items:
-                    type: string
-                  type: array
-                unready:
-                  description: Unready are the workspace Pods that are not ready to
-                    serve requests
-                  items:
-                    type: string
-                  type: array
-              type: object
             phase:
-              description: Workspace status
               type: string
             workspaceId:
-              description: Id of the workspace
               type: string
           required:
+          - ideUrl
           - workspaceId
-          - phase
-          - members
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

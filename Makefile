@@ -8,7 +8,6 @@ WEBHOOK_ENABLED ?= false
 DEFAULT_ROUTING ?= basic
 ADMIN_CTX ?= ""
 REGISTRY_ENABLED ?= true
-QUAY_USERNAME ?= che-incubator
 BUNDLE_IMG ?= quay.io/che-incubator/che-workspace-bundle:latest
 INDEX_IMG ?= quay.io/che-incubator/che-workspace-operator-index:latest
 
@@ -22,7 +21,6 @@ _print_vars:
 	@echo "    WEBHOOK_ENABLED=$(WEBHOOK_ENABLED)"
 	@echo "    DEFAULT_ROUTING=$(DEFAULT_ROUTING)"
 	@echo "    REGISTRY_ENABLED=$(REGISTRY_ENABLED)"
-	@echo "    QUAY_USERNAME=$(QUAY_USERNAME)"
 	@echo "    BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "    INDEX_IMG=$(INDEX_IMG)"
 
@@ -267,6 +265,5 @@ help: Makefile
 	@echo '    WEBHOOK_ENABLED    - Whether webhooks should be enabled in the deployment'
 	@echo '    ADMIN_CTX          - Kubectx entry that should be used during work with cluster. The current will be used if omitted'
 	@echo '    REGISTRY_ENABLED   - Whether the plugin registry should be deployed'
-	@echo '    QUAY_USERNAME      - Your Quay username'
 	@echo '    BUNDLE_IMG         - The name of the olm registry bundle image'
 	@echo '    INDEX_ING          - The name of the olm registry index image'

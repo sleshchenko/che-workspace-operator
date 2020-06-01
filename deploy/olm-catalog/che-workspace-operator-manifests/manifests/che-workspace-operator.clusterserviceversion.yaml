@@ -11,18 +11,8 @@ metadata:
             "name": "java-mysql"
           },
           "spec": {
-            "started": false,
             "devfile": {
               "apiVersion": "1.0.0",
-              "projects": [
-                {
-                  "name": "web-java-spring-petclinic",
-                  "source": {
-                    "location": "https://github.com/spring-projects/spring-petclinic.git",
-                    "type": "git"
-                  }
-                }
-              ],
               "commands": [
                 {
                   "actions": [
@@ -34,49 +24,22 @@ metadata:
                     }
                   ],
                   "name": "maven build"
-                },
-                {
-                  "actions": [
-                    {
-                      "command": "SPRING_DATASOURCE_URL=jdbc:mysql://db/petclinic \\\nSPRING_DATASOURCE_USERNAME=petclinic \\\nSPRING_DATASOURCE_PASSWORD=password \\\njava -jar -Dspring.profiles.active=mysql \\\n-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005 \\\ntarget/*.jar\n",
-                      "component": "tools",
-                      "type": "exec",
-                      "workdir": "${CHE_PROJECTS_ROOT}/web-java-spring-petclinic"
-                    }
-                  ],
-                  "name": "run webapp"
-                },
-                {
-                  "actions": [
-                    {
-                      "command": "/opt/rh/rh-mysql57/root/usr/bin/mysql -u root < ${CHE_PROJECTS_ROOT}/web-java-spring-petclinic/src/main/resources/db/mysql/user.sql && /opt/rh/rh-mysql57/root/usr/bin/mysql -u root -D petclinic < ${CHE_PROJECTS_ROOT}/web-java-spring-petclinic/src/main/resources/db/mysql/schema.sql && echo -e '\\e[32mDone.\\e[0m Database petclinic was prepared!'",
-                      "component": "mysql",
-                      "type": "exec"
-                    }
-                  ],
-                  "name": "prepare database"
-                },
-                {
-                  "actions": [
-                    {
-                      "referenceContent": "{\n\"version\": \"0.2.0\",\n\"configurations\": [\n  {\n    \"type\": \"java\",\n    \"name\": \"Debug (Attach) - Remote\",\n    \"request\": \"attach\",\n    \"hostName\": \"localhost\",\n    \"port\": 5005\n  }]\n}\n",
-                      "type": "vscode-launch"
-                    }
-                  ],
-                  "name": "Debug remote java application"
                 }
               ],
               "components": [
                 {
+                  "alias": "theia-ide",
+                  "id": "eclipse/che-theia/7.1.0",
+                  "type": "cheEditor"
+                },
+                {
+                  "id": "eclipse/che-machine-exec-plugin/7.1.0",
+                  "type": "chePlugin"
+                },
+                {
                   "id": "redhat/java/latest",
                   "memoryLimit": "1280MiB",
-                  "type": "chePlugin",
-                  "volumes": [
-                    {
-                      "containerPath": "/home/user/.m2",
-                      "name": "m2"
-                    }
-                  ]
+                  "type": "chePlugin"
                 },
                 {
                   "alias": "tools",
@@ -96,7 +59,7 @@ metadata:
                       "value": "$(JAVA_OPTS)"
                     }
                   ],
-                  "image": "quay.io/eclipse/che-java8-maven:7.8.0",
+                  "image": "quay.io/eclipse/che-java8-maven:nightly",
                   "memoryLimit": "700Mi",
                   "mountSources": true,
                   "type": "dockerimage",
@@ -141,18 +104,19 @@ metadata:
                   "memoryLimit": "300Mi",
                   "mountSources": true,
                   "type": "dockerimage"
-                },
+                }
+              ],
+              "projects": [
                 {
-                  "alias": "theia-ide",
-                  "id": "eclipse/che-theia/latest",
-                  "type": "cheEditor"
-                },
-                {
-                  "id": "eclipse/che-machine-exec-plugin/latest",
-                  "type": "chePlugin"
+                  "name": "web-java-spring-petclinic",
+                  "source": {
+                    "location": "https://github.com/spring-projects/spring-petclinic.git",
+                    "type": "git"
+                  }
                 }
               ]
-            }
+            },
+            "started": true
           }
         },
         {
@@ -274,15 +238,15 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    operators.operatorframework.io/internal-objects: '["workspaceroutings.workspace.che.eclipse.org","components.workspace.che.eclipse.org"]'
     categories: Developer Tools
+    certified: "false"
     containerImage: quay.io/che-incubator/che-workspace-controller:nightly
     createdAt: "2020-05-27T05:12:57Z"
-    certified: "false"
     description: |
       Start an Eclipse Che 7 workspace based on a Devfile description,
       that provides all required information related to the project
       development environment
+    operators.operatorframework.io/internal-objects: '["workspaceroutings.workspace.che.eclipse.org","components.workspace.che.eclipse.org"]'
     repository: https://github.com/che-incubator/che-workspace-operator
     support: Red Hat
   name: che-workspace-operator.v1.0.0
@@ -291,54 +255,23 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Component is the Schema for the components API
-      kind: Component
-      name: components.workspace.che.eclipse.org
-      version: v1alpha1
-    - description: WorkspaceRouting is the Schema for the workspaceroutings API
-      kind: WorkspaceRouting
-      name: workspaceroutings.workspace.che.eclipse.org
-      version: v1alpha1
-    - description: |
-        Eclipse Che 7 workspace based on a Devfile description,
-        that provides all required information related to the project
-        development environment
-      displayName: Che Workspace
-      kind: Workspace
-      name: workspaces.workspace.che.eclipse.org
-      version: v1alpha1
-      specDescriptors:
-      - description: Expected status
-        displayName: Started
-        path: started
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      statusDescriptors:
-      - description: Workspace status
-        displayName: Status
-        path: phase
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes.phase
-      - description: URL to have access to the online IDE
-        displayName: IDE URL
-        path: ideUrl
-        x-descriptors:
-        - urn:alm:descriptor:org.w3:link
-      - description: Workspace ID
-        displayName: ID of the Workspace
-        path: workspaceId
-        x-descriptors:
-        - urn:alm:descriptor:text
-      - description: Conditions of the workspace activity
-        displayName: Conditions
-        path: conditions
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes.conditions
-  displayName: Che Workspace Operator
+      - description: Component is the Schema for the components API
+        kind: Component
+        name: components.workspace.che.eclipse.org
+        version: v1alpha1
+      - description: WorkspaceRouting is the Schema for the workspaceroutings API
+        kind: WorkspaceRouting
+        name: workspaceroutings.workspace.che.eclipse.org
+        version: v1alpha1
+      - description: Workspace is the Schema for the workspaces API
+        kind: Workspace
+        name: workspaces.workspace.che.eclipse.org
+        version: v1alpha1
   description: |
     Start an Eclipse Che 7 workspace based on a Devfile description,
     that provides all required information related to the project
     development environment
+  displayName: Che Workspace Operator
   icon:
     - base64data: ""
       mediatype: ""
@@ -550,25 +483,25 @@ spec:
                 serviceAccountName: che-workspace-controller
     strategy: deployment
   installModes:
-  - supported: false
-    type: OwnNamespace
-  - supported: false
-    type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
-  - supported: true
-    type: AllNamespaces
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
   keywords:
-  - workspaces
-  - devtools
-  - developer
-  - ide
-  - che
+    - workspaces
+    - devtools
+    - developer
+    - ide
+    - che
   maintainers:
-  - email: dfestal@redhat.com
-    name: David Festal
-  - email: jpinkney@redhat.com
-    name: Josh Pinkney
+    - email: dfestal@redhat.com
+      name: David Festal
+    - email: jpinkney@redhat.com
+      name: Josh Pinkney
   maturity: alpha
   provider:
     name: Red Hat

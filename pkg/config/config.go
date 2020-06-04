@@ -106,6 +106,10 @@ func (wc *ControllerConfig) GetWebhooksEnabled() string {
 	return wc.GetPropertyOrDefault(webhooksEnabled, defaultWebhooksEnabled)
 }
 
+func (wc *ControllerConfig) GetNamespace() string {
+	return ConfigMapReference.Namespace
+}
+
 func (wc *ControllerConfig) GetProperty(name string) *string {
 	val, exists := wc.configMap.Data[name]
 	if exists {

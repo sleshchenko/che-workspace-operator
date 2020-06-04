@@ -20,7 +20,6 @@ import (
 	"github.com/che-incubator/che-workspace-operator/test/e2e/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/test/e2e/pkg/deploy"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/che-incubator/che-workspace-operator/test/e2e/pkg/client"
@@ -42,33 +41,36 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	fmt.Println("Starting to setup objects before run ginkgo suite")
 	config.Namespace = "che-workspace-controller"
 
-	workspaces, err := client.NewK8sClient()
+	k8sClient, err := client.NewK8sClient()
 	if err != nil {
 		fmt.Println("Failed to create workspace client")
+		panic(err)
 	}
 
-	ns := newNamespace()
-	ns, err = workspaces.Kube().CoreV1().Namespaces().Create(ns)
+	controller := deploy.NewDeployment(k8sClient)
 
+	err = controller.CreateNamespace()
 	if err != nil {
 		panic(err)
 	}
 
-	controller := deploy.NewDeployment(workspaces)
-
 	if err := controller.CreateAllOperatorRoles(); err != nil {
+		//TODO
 		_ = fmt.Errorf("Failed to create roles in clusters %s", err)
 	}
 
 	if err := controller.CreateOperatorClusterRole(); err != nil {
+		//TODO
 		_ = fmt.Errorf("Failed to create roles in clusters %s", err)
 	}
 
 	if err := controller.CustomResourceDefinitions(); err != nil {
+		//TODO
 		_ = fmt.Errorf("Failed to add custom resources definitions to cluster %s", err)
 	}
 
 	if err := controller.DeployWorkspacesController(); err != nil {
+		//TODO
 		_ = fmt.Errorf("Failed to deploy workspace controller %s", err)
 	}
 
@@ -79,6 +81,7 @@ var _ = ginkgo.SynchronizedAfterSuite(func() {
 	workspaces, err := client.NewK8sClient()
 
 	if err != nil {
+		//TODO
 		_ = fmt.Errorf("Failed to uninstall workspace controller %s", err)
 	}
 
@@ -96,17 +99,4 @@ func TestWorkspaceController(t *testing.T) {
 
 	fmt.Println("Running Workspace Controller e2e tests...")
 	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "Workspaces Controller Operator Tests", r)
-
-}
-
-func newNamespace() (ns *corev1.Namespace) {
-	return &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Namespace",
-			APIVersion: corev1.SchemeGroupVersion.Version,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: config.Namespace,
-		},
-	}
 }

@@ -12,6 +12,7 @@
 package workspace
 
 import (
+	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/webhook/server"
 	"k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,7 @@ const (
 	validateWebhookFailurePolicy = v1beta1.Fail
 )
 
-func buildValidatingWebhookCfg(namespace string) *v1beta1.ValidatingWebhookConfiguration {
+func buildValidatingWebhookCfg() *v1beta1.ValidatingWebhookConfiguration {
 	validateWebhookFailurePolicy := validateWebhookFailurePolicy
 	validateWebhookPath := validateWebhookPath
 	return &v1beta1.ValidatingWebhookConfiguration{
@@ -37,7 +38,7 @@ func buildValidatingWebhookCfg(namespace string) *v1beta1.ValidatingWebhookConfi
 				ClientConfig: v1beta1.WebhookClientConfig{
 					Service: &v1beta1.ServiceReference{
 						Name:      "workspace-controller",
-						Namespace: namespace,
+						Namespace: config.ControllerCfg.GetOperatorNamespace(),
 						Path:      &validateWebhookPath,
 					},
 					CABundle: server.CABundle,

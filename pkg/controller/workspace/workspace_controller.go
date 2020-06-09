@@ -25,7 +25,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	workspacev1alpha1 "github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	"github.com/che-incubator/che-workspace-operator/pkg/config"
 	"github.com/che-incubator/che-workspace-operator/pkg/controller/workspace/provision"
@@ -87,16 +86,9 @@ func add(mgr manager.Manager, r *ReconcileWorkspace) error {
 		return err
 	}
 
-	// Check if we're running on OpenShift
-	isOS, err := cluster.IsOpenShift()
+	err = config.ControllerCfg.Init()
 	if err != nil {
-		return err
-	}
-	config.ControllerCfg.SetIsOpenShift(isOS)
-
-	err = config.ControllerCfg.Validate()
-	if err != nil {
-		log.Error(err, "Controller configuration is invalid")
+		log.Error(err, "Failed to initialize configuration.")
 		return err
 	}
 

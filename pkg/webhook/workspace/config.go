@@ -14,8 +14,6 @@ package workspace
 import (
 	"context"
 
-	"github.com/che-incubator/che-workspace-operator/pkg/config"
-
 	"github.com/che-incubator/che-workspace-operator/internal/controller"
 	"github.com/che-incubator/che-workspace-operator/pkg/webhook/server"
 	"k8s.io/api/admissionregistration/v1beta1"
@@ -32,8 +30,6 @@ func Configure(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	namespace := config.ControllerCfg.GetNamespace()
 
 	if !server.IsSetUp() {
 		log.Info("Webhooks server is not set up. Cleaning up webhook configurations")
@@ -59,7 +55,7 @@ func Configure(ctx context.Context) error {
 		return nil
 	}
 
-	mutateWebhookCfg := buildMutateWebhookCfg(namespace)
+	mutateWebhookCfg := buildMutateWebhookCfg()
 
 	ownRef, err := controller.FindControllerOwner(ctx, c)
 	if err != nil {
@@ -96,7 +92,7 @@ func Configure(ctx context.Context) error {
 
 	server.GetWebhookServer().Register(mutateWebhookPath, &webhook.Admission{Handler: NewResourcesMutator()})
 
-	validateWebhookCfg := buildValidatingWebhookCfg(namespace)
+	validateWebhookCfg := buildValidatingWebhookCfg()
 	validateWebhookCfg.SetOwnerReferences([]metav1.OwnerReference{*ownRef})
 
 	if err := c.Create(ctx, validateWebhookCfg); err != nil {

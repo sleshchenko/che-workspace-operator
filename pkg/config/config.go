@@ -18,6 +18,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+
 	"github.com/che-incubator/che-workspace-operator/internal/cluster"
 	"github.com/che-incubator/che-workspace-operator/pkg/apis/workspace/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,13 +55,40 @@ var ConfigMapReference = client.ObjectKey{
 }
 
 type ControllerConfig struct {
-	configMap   *corev1.ConfigMap
-	isOpenShift bool
+	configMap         *corev1.ConfigMap
+	operatorNamespace string
+	isOpenShift       bool
 }
 
 func (wc *ControllerConfig) update(configMap *corev1.ConfigMap) {
 	log.Info("Updating the configuration from config map '%s' in namespace '%s'", configMap.Name, configMap.Namespace)
 	wc.configMap = configMap
+}
+func (wc *ControllerConfig) Init() (err error) {
+	// Check if we're running on OpenShift
+	ControllerCfg.isOpenShift, err = cluster.IsOpenShift()
+	if err != nil {
+		return err
+	}
+
+	ControllerCfg.operatorNamespace, err = k8sutil.GetOperatorNamespace()
+	if err != nil {
+		if !errors.Is(err, k8sutil.ErrRunLocal) {
+			return err
+		}
+	}
+
+	err = ControllerCfg.Validate()
+	if err != nil {
+		log.Error(err, "Controller configuration is invalid")
+		return err
+	}
+	return nil
+}
+
+// Returns operator namespace or empty string if operator is run localy
+func (wc *ControllerConfig) GetOperatorNamespace() string {
+	return wc.operatorNamespace
 }
 
 func (wc *ControllerConfig) GetWorkspacePVCName() string {
@@ -90,10 +119,6 @@ func (wc *ControllerConfig) IsOpenShift() bool {
 	return wc.isOpenShift
 }
 
-func (wc *ControllerConfig) SetIsOpenShift(isOpenShift bool) {
-	wc.isOpenShift = isOpenShift
-}
-
 func (wc *ControllerConfig) GetSidecarPullPolicy() string {
 	return wc.GetPropertyOrDefault(sidecarPullPolicy, defaultSidecarPullPolicy)
 }
@@ -104,10 +129,6 @@ func (wc *ControllerConfig) GetPluginArtifactsBrokerImage() string {
 
 func (wc *ControllerConfig) GetWebhooksEnabled() string {
 	return wc.GetPropertyOrDefault(webhooksEnabled, defaultWebhooksEnabled)
-}
-
-func (wc *ControllerConfig) GetNamespace() string {
-	return ConfigMapReference.Namespace
 }
 
 func (wc *ControllerConfig) GetProperty(name string) *string {

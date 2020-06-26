@@ -17,8 +17,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/devfile/devworkspace-operator/internal/images"
-
 	"github.com/eclipse/che-plugin-broker/model"
 	brokerModel "github.com/eclipse/che-plugin-broker/model"
 	"gopkg.in/yaml.v2"
@@ -56,7 +54,8 @@ func InternalRegistryPluginToMetaYAML(pluginID string) (*brokerModel.PluginMeta,
 			"failed to unmarshal downloaded meta.yaml for plugin '%s': %s", pluginID, err)
 	}
 
-	pluginMeta, err = images.FillPluginMetaEnvVars(pluginMeta)
+	// plugin metadata in internal plugin registry can have placeholders for images which should be resolved
+	pluginMeta, err = fillPluginMeta(pluginMeta)
 	if err != nil {
 		return nil, fmt.Errorf("could not process plugin %s from internal registry: %s", pluginID, err)
 	}

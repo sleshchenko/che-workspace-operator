@@ -15,8 +15,6 @@ package config
 import (
 	"fmt"
 
-	"github.com/devfile/devworkspace-operator/internal/images"
-
 	devworkspace "github.com/devfile/kubernetes-api/pkg/apis/workspaces/v1alpha1"
 
 	"gopkg.in/yaml.v2"
@@ -33,9 +31,9 @@ var (
 	defaultTerminalDockerimage = &devworkspace.ContainerComponent{
 		MemoryLimit: "256Mi",
 		Container: devworkspace.Container{
-			Name:  "dev",
-			Image: images.GetWebTerminalToolingImage(),
-			Args:  []string{"tail", "-f", "/dev/null"},
+			Name: "dev",
+			// Image: MUST BE FILLED IN AT RUNTIME
+			Args: []string{"tail", "-f", "/dev/null"},
 			Env: []devworkspace.EnvVar{
 				{
 					Name:  "PS1",
@@ -49,7 +47,15 @@ var (
 func (wc *ControllerConfig) GetDefaultTerminalDockerimage() (*devworkspace.ContainerComponent, error) {
 	defaultDockerimageYaml := wc.GetProperty(defaultTerminalDockerimageProperty)
 	if defaultDockerimageYaml == nil {
-		return defaultTerminalDockerimage.DeepCopy(), nil
+		terminalComponent := defaultTerminalDockerimage.DeepCopy()
+
+		image, err := GetWebTerminalToolingImage()
+
+		if err != nil {
+			return nil, err
+		}
+		terminalComponent.Container.Image = image
+		return terminalComponent, nil
 	}
 
 	var dockerimage devworkspace.ContainerComponent

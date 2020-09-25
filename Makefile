@@ -206,22 +206,11 @@ docker: _print_vars
 	docker build -t $(IMG) -f ./build/Dockerfile .
 	docker push $(IMG)
 
-### webhook: generate certificates for webhooks and deploy to cluster; no-op if running on OpenShift
-webhook:
-ifeq ($(WEBHOOK_ENABLED),true)
-ifeq ($(TOOL),kubectl)
-	./deploy/webhook-server-certs/deploy-webhook-server-certs.sh kubectl
-	kubectl patch deployment -n $(NAMESPACE) devworkspace-controller -p "$$(cat ./deploy/k8s/controller-tls.yaml)"
-endif
-else
-	@echo "Webhooks disabled, skipping certificate generation"
-endif
-
 ### info: display info
 info: _print_vars
 
 ### deploy: deploy controller to cluster
-deploy: _print_vars _set_ctx _create_namespace _deploy_registry _update_yamls _update_crds _apply_controller_cfg webhook _reset_yamls _reset_ctx
+deploy: _print_vars _set_ctx _create_namespace _deploy_registry _update_yamls _update_crds _apply_controller_cfg _reset_yamls _reset_ctx
 
 ### restart: restart cluster controller deployment
 restart: _set_ctx _do_restart _reset_ctx

@@ -16,6 +16,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	webhook_k8s "github.com/devfile/devworkspace-operator/pkg/webhook/kubernetes"
+	webhook_openshift "github.com/devfile/devworkspace-operator/pkg/webhook/openshift"
 	"os"
 
 	"github.com/devfile/devworkspace-operator/pkg/config"
@@ -48,9 +50,44 @@ func SetupWebhooks(ctx context.Context, cfg *rest.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create new client: %w", err)
 	}
+
+	err = setupCluster(ctx, client, namespace)
+	if err != nil {
+		return err
+	}
+
+	if config.ControllerCfg.IsOpenShift() {
+		// Set up the certs for OpenShift
+		log.Info("Setting up the OpenShift webhook server secure certs")
+		err := webhook_openshift.SetupOpenShiftWebhookCerts(client, ctx, namespace)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Set up the certs for kubernetes
+		log.Info("Setting up the Kubernetes webhook server secure certs")
+		err := webhook_k8s.SetupKubernetesWebhookCerts(client, ctx, namespace)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Set up the deployment
+	log.Info("Creating the webhook server deployment")
+	err = CreateWebhookServerDeployment(client, ctx, namespace)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setupCluster sets webhook blocking and required service account, cluster role, and cluster role binding
+// for creating a webhook server
+func setupCluster(ctx context.Context, client crclient.Client, namespace string) error {
 	// Set up the certs
 	log.Info("Setting up the init webhooks configurations")
-	err = WebhookCfgsInit(client, ctx, namespace)
+	err := WebhookCfgsInit(client, ctx, namespace)
 	if err != nil {
 		return err
 	}
@@ -72,20 +109,6 @@ func SetupWebhooks(ctx context.Context, cfg *rest.Config) error {
 	// Set up the cluster role binding
 	log.Info("Setting up the webhook server cluster role binding")
 	err = CreateWebhookClusterRoleBinding(client, ctx, namespace)
-	if err != nil {
-		return err
-	}
-
-	// Set up the certs
-	log.Info("Setting up the webhook server secure certs")
-	err = SetupWebhookCerts(client, ctx, namespace)
-	if err != nil {
-		return err
-	}
-
-	// Set up the deployment
-	log.Info("Creating the webhook server deployment")
-	err = CreateWebhookServerDeployment(client, ctx, namespace)
 	if err != nil {
 		return err
 	}

@@ -10,12 +10,12 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook
+package webhook_common
 
 import (
 	"context"
-
 	"github.com/devfile/devworkspace-operator/webhook/server"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,26 +25,16 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetupWebhookCerts(client crclient.Client, ctx context.Context, namespace string) error {
-	log.Info("Attempting to create the secure service")
-	err := createSecureService(client, ctx, namespace)
-	if err != nil {
-		log.Info("Failed creating the secure service")
-		return err
-	}
-	return nil
-}
+var log = logf.Log.WithName("webhook-common")
 
-func createSecureService(client crclient.Client, ctx context.Context, namespace string) error {
+func CreateSecureService(client crclient.Client, ctx context.Context, namespace string, annotations map[string]string) error {
 	port := int32(443)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      server.WebhookServerServiceName,
 			Namespace: namespace,
 			Labels:    server.WebhookServerAppLabels(),
-			Annotations: map[string]string{
-				"service.beta.openshift.io/serving-cert-secret-name": server.WebhookServerTLSSecretName,
-			},
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

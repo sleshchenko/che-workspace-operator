@@ -94,20 +94,10 @@ _update_yamls: _set_registry_url
 	sed -i.bak -e 's|devworkspace.sidecar.image_pull_policy: .*|devworkspace.sidecar.image_pull_policy: $(PULL_POLICY)|g' ./deploy/controller_config.yaml
 	rm ./deploy/controller_config.yaml.bak
 	sed -i.bak -e 's|namespace: $${NAMESPACE}|namespace: $(NAMESPACE)|' ./deploy/role_binding.yaml
-ifeq ($(TOOL),oc)
-	sed -i.bak -e "s|image: .*|image: $(IMG)|g" ./deploy/os/controller.yaml
-	sed -i.bak -e "s|value: \"quay.io/devfile/devworkspace-controller:next\"|value: $(IMG)|g" ./deploy/os/controller.yaml
-	sed -i.bak -e "s|imagePullPolicy: Always|imagePullPolicy: $(PULL_POLICY)|g" ./deploy/os/controller.yaml
-	sed -i.bak -e "s|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: '$$(date +%Y-%m-%dT%H:%M:%S%z)'|g" ./deploy/os/controller.yaml
-
-	rm ./deploy/os/controller.yaml.bak
-else
-	sed -i.bak -e "s|image: .*|image: $(IMG)|g" ./deploy/k8s/controller.yaml
-	sed -i.bak -e "s|value: \"quay.io/devfile/devworkspace-controller:next\"|value: $(IMG)|g" ./deploy/os/controller.yaml
-	sed -i.bak -e "s|imagePullPolicy: Always|imagePullPolicy: $(PULL_POLICY)|g" ./deploy/k8s/controller.yaml
-	sed -i.bak -e "s|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: '$$(date +%Y-%m-%dT%H:%M:%S%z)'|g" ./deploy/k8s/controller.yaml
-	rm ./deploy/k8s/controller.yaml.bak
-endif
+	sed -i.bak -e "s|image: .*|image: $(IMG)|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|value: \"quay.io/devfile/devworkspace-controller:next\"|value: $(IMG)|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|imagePullPolicy: Always|imagePullPolicy: $(PULL_POLICY)|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: '$$(date +%Y-%m-%dT%H:%M:%S%z)'|g" ./deploy/controller.yaml
 
 _reset_yamls: _set_registry_url
 	sed -i.bak -e "s|http://$(PLUGIN_REGISTRY_HOST)|http://che-plugin-registry.192.168.99.100.nip.io/v3|g" ./deploy/controller_config.yaml
@@ -117,22 +107,13 @@ _reset_yamls: _set_registry_url
 	sed -i.bak -e 's|devworkspace.sidecar.image_pull_policy: .*|devworkspace.sidecar.image_pull_policy: Always|g' ./deploy/controller_config.yaml
 	rm ./deploy/controller_config.yaml.bak
 	mv ./deploy/role_binding.yaml.bak ./deploy/role_binding.yaml
-ifeq ($(TOOL),oc)
-	sed -i.bak -e "s|image: $(IMG)|image: quay.io/devfile/devworkspace-controller:next|g" ./deploy/os/controller.yaml
+	sed -i.bak -e "s|image: $(IMG)|image: quay.io/devfile/devworkspace-controller:next|g" ./deploy/controller.yaml
 	# webhook server related image
-	sed -i.bak -e "s|value: $(IMG)|value: \"quay.io/devfile/devworkspace-controller:next\"|g" ./deploy/os/controller.yaml
-	sed -i.bak -e "s|imagePullPolicy: $(PULL_POLICY)|imagePullPolicy: Always|g" ./deploy/os/controller.yaml
-	sed -i.bak -e 's|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: ""|g' ./deploy/os/controller.yaml
+	sed -i.bak -e "s|value: $(IMG)|value: \"quay.io/devfile/devworkspace-controller:next\"|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|imagePullPolicy: $(PULL_POLICY)|imagePullPolicy: Always|g" ./deploy/controller.yaml
+	sed -i.bak -e 's|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: ""|g' ./deploy/controller.yaml
 
-	rm ./deploy/os/controller.yaml.bak
-else
-	sed -i.bak -e "s|image: $(IMG)|image: quay.io/devfile/devworkspace-controller:next|g" ./deploy/k8s/controller.yaml
-	# webhook server related image
-	sed -i.bak -e "s|value: $(IMG)|value: \"quay.io/devfile/devworkspace-controller:next\"|g" ./deploy/k8s/controller.yaml
-	sed -i.bak -e "s|imagePullPolicy: $(PULL_POLICY)|imagePullPolicy: Always|g" ./deploy/k8s/controller.yaml
-	sed -i.bak -e 's|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: ""|g' ./deploy/k8s/controller.yaml
-	rm ./deploy/k8s/controller.yaml.bak
-endif
+	rm ./deploy/controller.yaml.bak
 
 _update_crds: update_devworkspace_crds
 	$(TOOL) apply -f ./deploy/crds
@@ -146,11 +127,7 @@ _update_controller_deps:
 
 _apply_controller_cfg:
 	$(TOOL) apply -f ./deploy -n $(NAMESPACE)
-ifeq ($(TOOL),oc)
-	$(TOOL) apply -f ./deploy/os/controller.yaml -n $(NAMESPACE)
-else
-	$(TOOL) apply -f ./deploy/k8s/controller.yaml -n $(NAMESPACE)
-endif
+	$(TOOL) apply -f ./deploy/controller.yaml -n $(NAMESPACE)
 
 _do_restart:
 ifeq ($(TOOL),oc)
@@ -211,7 +188,7 @@ endif
 
 _generate_related_images_env:
 	@mkdir -p $(INTERNAL_TMP_DIR)
-	cat ./deploy/os/controller.yaml \
+	cat ./deploy/controller.yaml \
 		| yq -r \
 			'.spec.template.spec.containers[].env[]
 				| select(.name | startswith("RELATED_IMAGE"))

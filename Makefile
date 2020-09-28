@@ -107,12 +107,11 @@ _reset_yamls: _set_registry_url
 	sed -i.bak -e 's|devworkspace.sidecar.image_pull_policy: .*|devworkspace.sidecar.image_pull_policy: Always|g' ./deploy/controller_config.yaml
 	rm ./deploy/controller_config.yaml.bak
 	mv ./deploy/role_binding.yaml.bak ./deploy/role_binding.yaml
-	sed -i.bak -e "s|image: $(IMG)|image: quay.io/devfile/devworkspace-controller:next|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|image: .*|image: quay.io/devfile/devworkspace-controller:next|g" ./deploy/controller.yaml
 	# webhook server related image
 	sed -i.bak -e "s|value: $(IMG)|value: \"quay.io/devfile/devworkspace-controller:next\"|g" ./deploy/controller.yaml
-	sed -i.bak -e "s|imagePullPolicy: $(PULL_POLICY)|imagePullPolicy: Always|g" ./deploy/controller.yaml
+	sed -i.bak -e "s|imagePullPolicy: .*|imagePullPolicy: Always|g" ./deploy/controller.yaml
 	sed -i.bak -e 's|kubectl.kubernetes.io/restartedAt: .*|kubectl.kubernetes.io/restartedAt: ""|g' ./deploy/controller.yaml
-
 	rm ./deploy/controller.yaml.bak
 
 _update_crds: update_devworkspace_crds

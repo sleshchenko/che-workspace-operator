@@ -51,7 +51,14 @@ func SetupWebhooks(ctx context.Context, cfg *rest.Config) error {
 		return fmt.Errorf("failed to create new client: %w", err)
 	}
 
-	err = setupCluster(ctx, client, namespace)
+	// Set up the certs
+	log.Info("Setting up the init webhooks configurations")
+	err = WebhookCfgsInit(client, ctx, namespace)
+	if err != nil {
+		return err
+	}
+
+	err = setUpWebhookServerRBAC(ctx, err, client, namespace)
 	if err != nil {
 		return err
 	}
@@ -59,14 +66,14 @@ func SetupWebhooks(ctx context.Context, cfg *rest.Config) error {
 	if config.ControllerCfg.IsOpenShift() {
 		// Set up the certs for OpenShift
 		log.Info("Setting up the OpenShift webhook server secure certs")
-		err := webhook_openshift.SetupOpenShiftWebhookCerts(client, ctx, namespace)
+		err := webhook_openshift.SetupSecureService(client, ctx, namespace)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Set up the certs for kubernetes
 		log.Info("Setting up the Kubernetes webhook server secure certs")
-		err := webhook_k8s.SetupKubernetesWebhookCerts(client, ctx, namespace)
+		err := webhook_k8s.SetupSecureService(client, ctx, namespace)
 		if err != nil {
 			return err
 		}
@@ -82,16 +89,9 @@ func SetupWebhooks(ctx context.Context, cfg *rest.Config) error {
 	return nil
 }
 
-// setupCluster sets webhook blocking and required service account, cluster role, and cluster role binding
+// setUpWebhookServerRBAC sets webhook blocking and required service account, cluster role, and cluster role binding
 // for creating a webhook server
-func setupCluster(ctx context.Context, client crclient.Client, namespace string) error {
-	// Set up the certs
-	log.Info("Setting up the init webhooks configurations")
-	err := WebhookCfgsInit(client, ctx, namespace)
-	if err != nil {
-		return err
-	}
-
+func setUpWebhookServerRBAC(ctx context.Context, err error, client crclient.Client, namespace string) error {
 	// Set up the service account
 	log.Info("Setting up the webhook server service account")
 	err = CreateWebhookSA(client, ctx, namespace)
@@ -112,6 +112,5 @@ func setupCluster(ctx context.Context, client crclient.Client, namespace string)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

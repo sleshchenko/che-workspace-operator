@@ -10,7 +10,7 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook_k8s
+package cluster
 
 import (
 	"context"
@@ -22,10 +22,10 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// cleanupPods takes a job and cleans up all the pods associated with that job
-func cleanupPods(client crclient.Client, job *batchv1.Job, selectorName string) error {
-	selector := fmt.Sprintf("job-name=%s", selectorName)
-	pods, err := getPodsInNamespace(client, job.Namespace, selector)
+// CleanupPods takes a job and cleans up all the pods associated with that job
+func CleanupPods(client crclient.Client, job *batchv1.Job) error {
+	selector := fmt.Sprintf("job-name=%s", job.GetName())
+	pods, err := GetPodsBySelector(client, job.Namespace, selector)
 	for _, pod := range pods.Items {
 
 		// Get the pod from the cluster as a runtime object and then delete it
@@ -42,8 +42,8 @@ func cleanupPods(client crclient.Client, job *batchv1.Job, selectorName string) 
 	return nil
 }
 
-// getPodsInNamespace selects all pods by a selector in a namespace
-func getPodsInNamespace(client crclient.Client, namespace string, selector string) (*corev1.PodList, error) {
+// GetPodsBySelector selects all pods by a selector in a namespace
+func GetPodsBySelector(client crclient.Client, namespace string, selector string) (*corev1.PodList, error) {
 	podList := &corev1.PodList{}
 	labelSelector, err := labels.Parse(selector)
 	if err != nil {

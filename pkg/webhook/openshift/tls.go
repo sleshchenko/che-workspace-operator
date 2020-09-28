@@ -14,7 +14,7 @@ package webhook_openshift
 
 import (
 	"context"
-	"github.com/devfile/devworkspace-operator/pkg/webhook/common"
+	"github.com/devfile/devworkspace-operator/pkg/webhook/service"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	"github.com/devfile/devworkspace-operator/webhook/server"
@@ -24,9 +24,9 @@ import (
 
 var log = logf.Log.WithName("webhook-openshift")
 
-func SetupOpenShiftWebhookCerts(client crclient.Client, ctx context.Context, namespace string) error {
+func SetupSecureService(client crclient.Client, ctx context.Context, namespace string) error {
 	log.Info("Attempting to create the secure service")
-	err := webhook_common.CreateSecureService(client, ctx, namespace, map[string]string{
+	err := service.CreateSecureService(client, ctx, namespace, map[string]string{
 		"service.beta.openshift.io/serving-cert-secret-name": server.WebhookServerTLSSecretName,
 	})
 	if err != nil {

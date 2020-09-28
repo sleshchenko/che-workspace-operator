@@ -10,32 +10,33 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook_k8s
+package cluster
 
 import (
 	"context"
 	batchv1 "k8s.io/api/batch/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
-// cleanJob cleans up a job in a given namespace
-func cleanJob(client crclient.Client, namespace string) error {
-	job, err := getJobInNamespace(client, TLSJobName, namespace)
+// CleanJob cleans up a job in a given namespace
+func CleanJob(client crclient.Client, name string, namespace string) error {
+	job, err := GetJobInNamespace(client, name, namespace)
 	if err != nil {
 		return err
 	}
-	err = deleteJob(client, job)
+	err = DeleteJob(client, job)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// getJobInNamespace finds a job with a given name in a namespace
-func getJobInNamespace(client crclient.Client, name string, namespace string) (*batchv1.Job, error){
+// GetJobInNamespace finds a job with a given name in a namespace
+func GetJobInNamespace(client crclient.Client, name string, namespace string) (*batchv1.Job, error){
 	job := &batchv1.Job{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, job)
 	if err != nil {
@@ -45,8 +46,8 @@ func getJobInNamespace(client crclient.Client, name string, namespace string) (*
 }
 
 // deleteJob deletes a given job and cleans up any pods associated with it
-func deleteJob(client crclient.Client, job *batchv1.Job) error {
-	err := cleanupPods(client, job, TLSJobName)
+func DeleteJob(client crclient.Client, job *batchv1.Job) error {
+	err := CleanupPods(client, job)
 	if err != nil {
 		return err
 	}
@@ -59,19 +60,44 @@ func deleteJob(client crclient.Client, job *batchv1.Job) error {
 }
 
 // Wait for the job to complete. Times out if the job isn't complete after $(timeout) seconds
-func waitForJobCompletion(client crclient.Client, name string, namespace string, timeout time.Duration) error {
+func WaitForJobCompletion(client crclient.Client, name string, namespace string, timeout time.Duration) error {
 	const interval = 1 * time.Second
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		job, err := getJobInNamespace(client, name, namespace)
+		job, err := GetJobInNamespace(client, name, namespace)
 		if err != nil {
 			return false, err
 		}
 
 		if job.Status.Succeeded > 0 {
-			log.Info("Please import public part of DevWorkspace self-signed CA certificate from " + TLSSelfSignedCertificateSecretName + " secret into your browser.", )
 			return true, nil
 		}
 		return false, nil
 	})
+}
+
+func SyncJobToCluster(
+	client crclient.Client,
+	ctx context.Context,
+	specJob *batchv1.Job,
+) error {
+	if err := client.Create(ctx, specJob); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		existingCfg, err := GetJobInNamespace(client, specJob.GetName(), specJob.Namespace)
+		if err != nil {
+			return err
+		}
+		specJob.ResourceVersion = existingCfg.ResourceVersion
+		err = client.Update(ctx, specJob)
+		if err != nil {
+			return err
+		}
+		log.Info("Updated Job " + specJob.GetName())
+	} else {
+		log.Info("Created Job" + specJob.GetName())
+	}
+
+	return nil
 }
 

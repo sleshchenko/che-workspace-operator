@@ -10,13 +10,11 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook_common
+package service
 
 import (
 	"context"
 	"github.com/devfile/devworkspace-operator/webhook/server"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,8 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logf.Log.WithName("webhook-common")
 
 func CreateSecureService(client crclient.Client, ctx context.Context, namespace string, annotations map[string]string) error {
 	port := int32(443)

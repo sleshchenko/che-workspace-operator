@@ -10,52 +10,14 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook_k8s
+package tls
 
 import (
-	"context"
 	"github.com/devfile/devworkspace-operator/internal/images"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-func SyncJobToCluster(
-	client crclient.Client,
-	ctx context.Context,
-	serviceAccountName string,
-	name string,
-	namespace string,
-	env map[string]string,
-) error {
-
-	specJob, err := getSpecJob(serviceAccountName, name, namespace, env)
-	if err != nil {
-		return err
-	}
-
-	if err := client.Create(ctx, specJob); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return err
-		}
-		existingCfg, err := getJobInNamespace(client, TLSJobName, specJob.Namespace)
-		if err != nil {
-			return err
-		}
-		specJob.ResourceVersion = existingCfg.ResourceVersion
-		err = client.Update(ctx, specJob)
-		if err != nil {
-			return err
-		}
-		log.Info("Updated Job")
-	} else {
-		log.Info("Created Job")
-	}
-
-	return nil
-}
 
 // GetSpecJob creates new job configuration by given parameters.
 func getSpecJob(

@@ -10,34 +10,31 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package webhook_common
+package webhook
 
 import (
 	"context"
-	"github.com/devfile/devworkspace-operator/webhook/server"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/devfile/devworkspace-operator/webhook/server"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logf.Log.WithName("webhook-common")
-
-func CreateSecureService(client crclient.Client, ctx context.Context, namespace string, annotations map[string]string) error {
+func CreateSecureService(client client.Client, ctx context.Context, namespace string, annotations map[string]string) error {
 	port := int32(443)
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      server.WebhookServerServiceName,
-			Namespace: namespace,
-			Labels:    server.WebhookServerAppLabels(),
+	service := &v1.Service{
+		ObjectMeta: v12.ObjectMeta{
+			Name:        server.WebhookServerServiceName,
+			Namespace:   namespace,
+			Labels:      server.WebhookServerAppLabels(),
 			Annotations: annotations,
 		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
 				{
 					Port:       port,
 					Protocol:   "TCP",
@@ -49,7 +46,7 @@ func CreateSecureService(client crclient.Client, ctx context.Context, namespace 
 	}
 
 	if err := client.Create(ctx, service); err != nil {
-		if !apierrors.IsAlreadyExists(err) {
+		if !errors.IsAlreadyExists(err) {
 			return err
 		}
 		existingCfg, err := getClusterService(ctx, namespace, client)
@@ -74,15 +71,15 @@ func CreateSecureService(client crclient.Client, ctx context.Context, namespace 
 	return nil
 }
 
-func getClusterService(ctx context.Context, namespace string, client crclient.Client) (*corev1.Service, error) {
-	service := &corev1.Service{}
+func getClusterService(ctx context.Context, namespace string, client client.Client) (*v1.Service, error) {
+	service := &v1.Service{}
 	namespacedName := types.NamespacedName{
 		Namespace: namespace,
 		Name:      server.WebhookServerServiceName,
 	}
 	err := client.Get(ctx, namespacedName, service)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err

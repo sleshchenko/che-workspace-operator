@@ -16,9 +16,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	webhook_k8s "github.com/devfile/devworkspace-operator/pkg/webhook/kubernetes"
 	webhook_openshift "github.com/devfile/devworkspace-operator/pkg/webhook/openshift"
-	"os"
 
 	"github.com/devfile/devworkspace-operator/pkg/config"
 

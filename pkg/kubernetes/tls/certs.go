@@ -14,13 +14,14 @@ package tls
 
 import (
 	"context"
+	"time"
+
 	"github.com/devfile/devworkspace-operator/internal/cluster"
 	"github.com/devfile/devworkspace-operator/webhook/server"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type GenCertParams struct {
@@ -62,8 +63,8 @@ func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertPa
 		return err
 	}
 
-	// Wait a maximum of 60 seconds for the job to be completed
-	err = cluster.WaitForJobCompletion(client, jobName, params.Namespace, 60*time.Second)
+	// Wait a maximum of 300 seconds for the job to be completed
+	err = cluster.WaitForJobCompletion(client, jobName, params.Namespace, 300*time.Second)
 	if err != nil {
 		return err
 	}
@@ -77,22 +78,23 @@ func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertPa
 	return nil
 }
 
-
 // removeCACertificate removes a CA Cert. Used to clear out the old CACert when we are creating a new one
 func removeCACertificate(client crclient.Client, name, namespace string) error {
 	caSelfSignedCertificateSecret := &corev1.Secret{}
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, caSelfSignedCertificateSecret)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Error(err, "Error getting self-signed certificate secret "+name)
-		return err
-	} else if err != nil && errors.IsNotFound(err) {
-		// We don't have anything to remove in this case since its already not found
-		return nil
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Error(err, "Error getting self-signed certificate secret "+name)
+			return err
+		} else if errors.IsNotFound(err) {
+			// We don't have anything to remove in this case since its already not found
+			return nil
+		}
 	}
 
 	// Remove CA secret because TLS secret is missing (they should be generated together).
 	if err = client.Delete(context.TODO(), caSelfSignedCertificateSecret); err != nil {
-		log.Error(err, "Error deleting self-signed certificate secret "+ TLSSelfSignedCertificateSecretName)
+		log.Error(err, "Error deleting self-signed certificate secret "+TLSSelfSignedCertificateSecretName)
 		return err
 	}
 

@@ -14,6 +14,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/devfile/devworkspace-operator/webhook/server"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,9 +28,9 @@ func CreateSecureService(client crclient.Client, ctx context.Context, namespace 
 	port := int32(443)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      server.WebhookServerServiceName,
-			Namespace: namespace,
-			Labels:    server.WebhookServerAppLabels(),
+			Name:        server.WebhookServerServiceName,
+			Namespace:   namespace,
+			Labels:      server.WebhookServerAppLabels(),
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{

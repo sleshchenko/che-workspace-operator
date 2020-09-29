@@ -14,29 +14,30 @@ package cluster
 
 import (
 	"context"
+	"time"
+
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 // CleanJob cleans up a job in a given namespace
 func CleanJob(client crclient.Client, name string, namespace string) error {
-	job, err := GetJobInNamespace(client, name, namespace)
+	job, err := getJobInNamespace(client, name, namespace)
 	if err != nil {
 		return err
 	}
-	err = DeleteJob(client, job)
+	err = deleteJob(client, job)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// GetJobInNamespace finds a job with a given name in a namespace
-func GetJobInNamespace(client crclient.Client, name string, namespace string) (*batchv1.Job, error){
+// getJobInNamespace finds a job with a given name in a namespace
+func getJobInNamespace(client crclient.Client, name string, namespace string) (*batchv1.Job, error) {
 	job := &batchv1.Job{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, job)
 	if err != nil {
@@ -46,14 +47,14 @@ func GetJobInNamespace(client crclient.Client, name string, namespace string) (*
 }
 
 // deleteJob deletes a given job and cleans up any pods associated with it
-func DeleteJob(client crclient.Client, job *batchv1.Job) error {
+func deleteJob(client crclient.Client, job *batchv1.Job) error {
 	err := CleanupPods(client, job)
 	if err != nil {
 		return err
 	}
 	err = client.Delete(context.TODO(), job)
 	if err != nil {
-		log.Error(err, "Error deleting job: " + job.Name)
+		log.Error(err, "Error deleting job: "+job.Name)
 		return err
 	}
 	return nil
@@ -63,7 +64,7 @@ func DeleteJob(client crclient.Client, job *batchv1.Job) error {
 func WaitForJobCompletion(client crclient.Client, name string, namespace string, timeout time.Duration) error {
 	const interval = 1 * time.Second
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		job, err := GetJobInNamespace(client, name, namespace)
+		job, err := getJobInNamespace(client, name, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -84,7 +85,7 @@ func SyncJobToCluster(
 		if !apierrors.IsAlreadyExists(err) {
 			return err
 		}
-		existingCfg, err := GetJobInNamespace(client, specJob.GetName(), specJob.Namespace)
+		existingCfg, err := getJobInNamespace(client, specJob.GetName(), specJob.Namespace)
 		if err != nil {
 			return err
 		}
@@ -100,4 +101,3 @@ func SyncJobToCluster(
 
 	return nil
 }
-

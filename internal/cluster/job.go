@@ -62,6 +62,7 @@ func deleteJob(client crclient.Client, job *batchv1.Job) error {
 
 // Wait for the job to complete. Times out if the job isn't complete after $(timeout) seconds
 func WaitForJobCompletion(client crclient.Client, name string, namespace string, timeout time.Duration) error {
+
 	const interval = 1 * time.Second
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		job, err := getJobInNamespace(client, name, namespace)

@@ -27,7 +27,7 @@ var log = logf.Log.WithName("webhook-openshift")
 
 func SetupSecureService(client crclient.Client, ctx context.Context, namespace string) error {
 	log.Info("Attempting to create the secure service")
-	err := service.CreateSecureService(client, ctx, namespace, map[string]string{
+	err := service.CreateOrUpdateSecureService(client, ctx, namespace, map[string]string{
 		"service.beta.openshift.io/serving-cert-secret-name": server.WebhookServerTLSSecretName,
 	})
 	if err != nil {

@@ -24,7 +24,7 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateSecureService(client crclient.Client, ctx context.Context, namespace string, annotations map[string]string) error {
+func CreateOrUpdateSecureService(client crclient.Client, ctx context.Context, namespace string, annotations map[string]string) error {
 	port := int32(443)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

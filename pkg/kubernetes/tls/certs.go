@@ -32,11 +32,6 @@ type GenCertParams struct {
 	CASecretName  string
 }
 
-// TLS related constants
-const (
-	TLSSelfSignedCertificateSecretName = "devworkspace-self-signed-certificate"
-)
-
 func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertParams) error {
 	// Remove CA certificate secret if any
 	err := removeCACertificate(client, params.CASecretName, params.Namespace)
@@ -79,12 +74,12 @@ func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertPa
 }
 
 // removeCACertificate removes a CA Cert. Used to clear out the old CACert when we are creating a new one
-func removeCACertificate(client crclient.Client, name, namespace string) error {
+func removeCACertificate(client crclient.Client, certName, namespace string) error {
 	caSelfSignedCertificateSecret := &corev1.Secret{}
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, caSelfSignedCertificateSecret)
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: certName}, caSelfSignedCertificateSecret)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			log.Error(err, "Error getting self-signed certificate secret "+name)
+			log.Error(err, "Error getting self-signed certificate secret "+certName)
 			return err
 		} else if errors.IsNotFound(err) {
 			// We don't have anything to remove in this case since its already not found
@@ -92,9 +87,9 @@ func removeCACertificate(client crclient.Client, name, namespace string) error {
 		}
 	}
 
-	// Remove CA secret because TLS secret is missing (they should be generated together).
+	// Remove CA cert because TLS secret is missing (they should be generated together).
 	if err = client.Delete(context.TODO(), caSelfSignedCertificateSecret); err != nil {
-		log.Error(err, "Error deleting self-signed certificate secret "+TLSSelfSignedCertificateSecretName)
+		log.Error(err, "Error deleting self-signed certificate secret "+certName)
 		return err
 	}
 

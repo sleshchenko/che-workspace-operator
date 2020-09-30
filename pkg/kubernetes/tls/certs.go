@@ -28,7 +28,9 @@ type GenCertParams struct {
 	RequesterName string
 	Domain        string
 	Namespace     string
+	//Secret name that will contain tls.crt and tls.key which is going to be used by server
 	TLSSecretName string
+	//Secret name that will contain ca.crt that should be propagated to clients' trust store
 	CASecretName  string
 }
 

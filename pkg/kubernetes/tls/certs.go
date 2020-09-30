@@ -31,7 +31,7 @@ type GenCertParams struct {
 	//Secret name that will contain tls.crt and tls.key which is going to be used by server
 	TLSSecretName string
 	//Secret name that will contain ca.crt that should be propagated to clients' trust store
-	CASecretName  string
+	CASecretName string
 }
 
 func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertParams) error {

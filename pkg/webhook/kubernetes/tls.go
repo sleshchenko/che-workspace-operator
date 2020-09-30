@@ -41,6 +41,18 @@ func SetupSecureService(client crclient.Client, ctx context.Context, namespace s
 	if !errors.IsNotFound(err) {
 		log.Error(err, "Error getting TLS secret "+server.WebhookServerTLSSecretName)
 		return err
+	} else {
+		// TLS secret doesn't exist so we need to generate a new one
+		err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
+			RequesterName: "webhook-server",
+			Namespace:     namespace,
+			CASecretName:  TLSSelfSignedCertificateSecretName,
+			TLSSecretName: server.WebhookServerTLSSecretName,
+			Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	err = service.CreateOrUpdateSecureService(client, ctx, namespace, map[string]string{})
@@ -49,13 +61,5 @@ func SetupSecureService(client crclient.Client, ctx context.Context, namespace s
 		return err
 	}
 
-	// TLS secret doesn't exist so we need to generate a new one
-	err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
-		RequesterName: "webhook-server",
-		Namespace:     namespace,
-		CASecretName:  TLSSelfSignedCertificateSecretName,
-		TLSSecretName: server.WebhookServerTLSSecretName,
-		Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
-	})
-	return err
+	return nil
 }

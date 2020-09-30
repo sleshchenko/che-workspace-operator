@@ -14,10 +14,10 @@ package webhook_k8s
 
 import (
 	"context"
+	"github.com/devfile/devworkspace-operator/pkg/kubernetes/tls"
 
 	"github.com/devfile/devworkspace-operator/pkg/webhook/service"
 
-	"github.com/devfile/devworkspace-operator/pkg/kubernetes/tls"
 	"github.com/devfile/devworkspace-operator/webhook/server"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,10 +37,24 @@ const (
 func SetupSecureService(client crclient.Client, ctx context.Context, namespace string) error {
 	devworkspaceSecret := &corev1.Secret{}
 
+	//TODO Should not we check WebhookServerTLSSecretName existence as well?
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: server.WebhookServerTLSSecretName}, devworkspaceSecret)
 	if !errors.IsNotFound(err) {
 		log.Error(err, "Error getting TLS secret "+server.WebhookServerTLSSecretName)
 		return err
+	} else {
+		// TLS secret doesn't exist so we need to generate a new one
+		err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
+			RequesterName: "webhook-server",
+			Namespace:     namespace,
+			CASecretName:  TLSSelfSignedCertificateSecretName,
+			TLSSecretName: server.WebhookServerTLSSecretName,
+			Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
+		})
+		if err != nil {
+			log.Info("Failed to generate webhook service certificates")
+			return err
+		}
 	}
 
 	err = service.CreateOrUpdateSecureService(client, ctx, namespace, map[string]string{})
@@ -49,13 +63,5 @@ func SetupSecureService(client crclient.Client, ctx context.Context, namespace s
 		return err
 	}
 
-	// TLS secret doesn't exist so we need to generate a new one
-	err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
-		RequesterName: "webhook-server",
-		Namespace:     namespace,
-		CASecretName:  TLSSelfSignedCertificateSecretName,
-		TLSSecretName: server.WebhookServerTLSSecretName,
-		Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
-	})
-	return err
+	return nil
 }

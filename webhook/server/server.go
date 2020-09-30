@@ -38,6 +38,7 @@ const (
 
 	WebhookServerCertsVolumeName = "webhook-tls-certs"
 
+	//Secret name with TLS certs inside (tls.crt + tls.key) that is mounted to webhook server
 	WebhookServerTLSSecretName = "devworkspace-webhookserver-tls"
 )
 
@@ -67,6 +68,8 @@ func ConfigureWebhookServer(mgr manager.Manager) error {
 		return nil
 	}
 
+	//TODO What is difference between ca.crt and tls.crt??? Probably we're safe to use
+	//TODO tls.crt on the webhook configuration side, but it'd better understand different and maybe it's better to switch to ca.crt
 	CABundle, err = ioutil.ReadFile(WebhookServerCertDir + "/tls.crt")
 	if os.IsNotExist(err) {
 		return errors.New("CA certificate is not found. Unable to setup webhook server")

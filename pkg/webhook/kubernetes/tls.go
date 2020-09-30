@@ -30,28 +30,31 @@ import (
 var log = logf.Log.WithName("webhook-k8s")
 
 const (
-	TLSSelfSignedCertificateSecretName = "devworkspace-self-signed-certificate"
+	WebhookServerCACertSecretName = "devworkspace-self-signed-certificate"
 )
 
 // SetupSecureService handles TLS secrets required for deployment on Kubernetes.
 func SetupSecureService(client crclient.Client, ctx context.Context, namespace string) error {
 	devworkspaceSecret := &corev1.Secret{}
 
+	//CA cert is not checked here since it's ignored by webhook server at that time
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: server.WebhookServerTLSSecretName}, devworkspaceSecret)
-	if !errors.IsNotFound(err) {
-		log.Error(err, "Error getting TLS secret "+server.WebhookServerTLSSecretName)
-		return err
-	} else {
-		// TLS secret doesn't exist so we need to generate a new one
-		err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
-			RequesterName: "webhook-server",
-			Namespace:     namespace,
-			CASecretName:  TLSSelfSignedCertificateSecretName,
-			TLSSecretName: server.WebhookServerTLSSecretName,
-			Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
-		})
-		if err != nil {
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Error(err, "Error getting TLS secret "+server.WebhookServerTLSSecretName)
 			return err
+		} else {
+			// TLS secret doesn't exist so we need to generate a new one
+			err = tls.GenerateCerts(client, ctx, tls.GenCertParams{
+				RequesterName: "webhook-server",
+				Namespace:     namespace,
+				CASecretName:  WebhookServerCACertSecretName,
+				TLSSecretName: server.WebhookServerTLSSecretName,
+				Domain:        server.WebhookServerServiceName + "." + namespace + ".svc",
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 

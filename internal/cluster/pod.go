@@ -14,24 +14,23 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CleanupPods takes a job and cleans up all the pods associated with that job
-func CleanupPods(client crclient.Client, job *batchv1.Job) error {
-	selector := fmt.Sprintf("job-name=%s", job.GetName())
-	pods, err := GetPodsBySelector(client, job.Namespace, selector)
+// CleanupPods removes all pods which match the specified selector
+func CleanupPods(client crclient.Client, namespace string, selector string) error {
+	pods, err := GetPodsBySelector(client, namespace, selector)
+	if err != nil {
+		return err
+	}
 	for _, pod := range pods.Items {
-
 		// Get the pod from the cluster as a runtime object and then delete it
 		clusterPod := &corev1.Pod{}
-		err = client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: job.Namespace}, clusterPod)
+		err = client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: namespace}, clusterPod)
 		if err != nil {
 			return err
 		}

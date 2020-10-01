@@ -21,17 +21,15 @@ import (
 
 // getSpecJob creates new job configuration by given parameters.
 func getSpecJob(
-	serviceAccountName string,
 	name string,
 	namespace string,
+	labels map[string]string,
+	serviceAccountName string,
 	env map[string]string) (*batchv1.Job, error) {
 
 	backoffLimit := int32(2)
 	terminationGracePeriodSeconds := int64(30)
 	ttlSecondsAfterFinished := int32(15)
-	pullPolicy := corev1.PullIfNotPresent
-
-	labels := make(map[string]string)
 
 	var jobEnvVars []corev1.EnvVar
 	for envVarName, envVarValue := range env {
@@ -57,7 +55,7 @@ func getSpecJob(
 						{
 							Name:            name + "-container",
 							Image:           images.GetWebhookCertJobImage(),
-							ImagePullPolicy: pullPolicy,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env:             jobEnvVars,
 						},
 					},

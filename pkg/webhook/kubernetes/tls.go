@@ -30,13 +30,13 @@ import (
 var log = logf.Log.WithName("webhook-k8s")
 
 const (
-	WebhookServerCACertSecretName = "devworkspace-self-signed-certificate"
+	WebhookServerCACertSecretName = "devworkspace-webhookserver-ca-cert"
 )
 
 // SetupSecureService handles TLS secrets required for deployment on Kubernetes.
 func SetupSecureService(client crclient.Client, ctx context.Context, namespace string) error {
 	devworkspaceSecret := &corev1.Secret{}
-
+	//check only tls certs because webhook server does not care about CA cert since it webhooks can be configured with non-CA domain cert
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: server.WebhookServerTLSSecretName}, devworkspaceSecret)
 	if err != nil {
 		if !errors.IsNotFound(err) {

@@ -16,8 +16,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/devfile/devworkspace-operator/pkg/config"
+
 	"github.com/devfile/devworkspace-operator/internal/cluster"
-	"github.com/devfile/devworkspace-operator/webhook/server"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,7 +42,10 @@ func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertPa
 		return err
 	}
 
-	jobName := params.RequesterName + "-gen-cert"
+	controllerSA, err := config.ControllerCfg.GetWorkspaceControllerSA()
+	if err != nil {
+		return err
+	}
 
 	jobEnvVars := map[string]string{
 		"DOMAIN":                         params.Domain,
@@ -50,7 +54,13 @@ func GenerateCerts(client crclient.Client, ctx context.Context, params GenCertPa
 		"CHE_CA_CERTIFICATE_SECRET_NAME": params.CASecretName,
 	}
 
-	job, err := getSpecJob(server.WebhookServerSAName, jobName, params.Namespace, jobEnvVars)
+	jobName := params.RequesterName + "-gen-cert"
+
+	labels := make(map[string]string)
+	labels["app.kubernetes.io/name"] = jobName
+	labels["app.kubernetes.io/component"] = "cert-generator"
+
+	job, err := getSpecJob(jobName, params.Namespace, labels, controllerSA, jobEnvVars)
 	if err != nil {
 		return err
 	}
@@ -80,12 +90,13 @@ func removeCACertificate(client crclient.Client, certName, namespace string) err
 	caSelfSignedCertificateSecret := &corev1.Secret{}
 	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: certName}, caSelfSignedCertificateSecret)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			log.Error(err, "Error getting self-signed certificate secret "+certName)
-			return err
-		} else if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			// We don't have anything to remove in this case since its already not found
 			return nil
+
+		} else {
+			log.Error(err, "Error getting self-signed certificate secret "+certName)
+			return err
 		}
 	}
 

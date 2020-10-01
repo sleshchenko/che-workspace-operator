@@ -16,6 +16,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,7 +50,7 @@ func getJobInNamespace(client crclient.Client, name string, namespace string) (*
 
 // deleteJob deletes a given job and cleans up any pods associated with it
 func deleteJob(client crclient.Client, job *batchv1.Job) error {
-	err := CleanupPods(client, job)
+	err := CleanupPods(client, job.Namespace, labels.FormatLabels(job.Spec.Selector.MatchLabels))
 	if err != nil {
 		return err
 	}
@@ -62,7 +64,6 @@ func deleteJob(client crclient.Client, job *batchv1.Job) error {
 
 // Wait for the job to complete. Times out if the job isn't complete after $(timeout) seconds
 func WaitForJobCompletion(client crclient.Client, name string, namespace string, timeout time.Duration) error {
-
 	const interval = 1 * time.Second
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		job, err := getJobInNamespace(client, name, namespace)
@@ -95,9 +96,9 @@ func SyncJobToCluster(
 		if err != nil {
 			return err
 		}
-		log.Info("Updated Job " + specJob.GetName())
+		log.Info("Updated Job '" + specJob.GetName() + "'")
 	} else {
-		log.Info("Created Job" + specJob.GetName())
+		log.Info("Created Job '" + specJob.GetName() + "'")
 	}
 
 	return nil

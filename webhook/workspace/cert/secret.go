@@ -10,30 +10,16 @@
 //   Red Hat, Inc. - initial API and implementation
 //
 
-package workspace
+package cert
 
 import (
 	context "context"
 
-	"github.com/devfile/devworkspace-operator/webhook/server"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-func isCertManagerSecret(client crclient.Client, namespace string) (bool, error) {
-	secret, err := getSecret(client, namespace, server.WebhookServerTLSSecretName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	isCertManagerAnnotated := hasCertManagerAnnotation(secret.GetAnnotations())
-	return isCertManagerAnnotated, nil
-}
 
 func getSecret(client crclient.Client, namespace string, name string) (*corev1.Secret, error) {
 	secret := corev1.Secret{}

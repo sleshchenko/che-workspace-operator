@@ -14,6 +14,7 @@ package workspace
 import (
 	"github.com/devfile/devworkspace-operator/pkg/config"
 	"github.com/devfile/devworkspace-operator/webhook/server"
+	"github.com/devfile/devworkspace-operator/webhook/workspace/cert"
 	"k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,23 +26,27 @@ const (
 )
 
 // BuildMutateWebhookCfg creates the mutating webhook configuration for the controller
-func BuildMutateWebhookCfg(namespace string, annotations map[string]string) *v1beta1.MutatingWebhookConfiguration {
+func BuildMutateWebhookCfg(namespace string) *v1beta1.MutatingWebhookConfiguration {
 	mutateWebhookFailurePolicy := mutateWebhookFailurePolicy
 	mutateWebhookPath := mutateWebhookPath
 	labelExistsOp := metav1.LabelSelectorOpExists
 	equivalentMatchPolicy := v1beta1.Equivalent
+
+	//TODO pass client and existing CA there to avoid redundant update when injectFrom is used
+	CA, annotations, err := cert.GetWebhookCfgCA(nil, namespace, nil)
+
+	if err != nil {
+		//TODO propagate err
+		//return err
+	}
+
 	webhookClientConfig := v1beta1.WebhookClientConfig{
 		Service: &v1beta1.ServiceReference{
 			Name:      server.WebhookServerServiceName,
 			Namespace: namespace,
 			Path:      &mutateWebhookPath,
 		},
-	}
-
-	// If annotations[CertManagerInjectKey] is not found then it is not a cert manager cert. I.e. either created
-	// by the job or by openshift automatically so we should use the provided CABundle
-	if _, ok := annotations[CertManagerInjectKey]; !ok {
-		webhookClientConfig.CABundle = server.CABundle
+		CABundle: CA,
 	}
 
 	workspaceMutateWebhook := v1beta1.MutatingWebhook{

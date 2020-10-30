@@ -26,4 +26,4 @@ output:
     - container:
         name: test-container2
         image: my-image
-  errRegexp:
+  errRegexp: "only apply-type commands are supported in the prestart lifecycle binding"

@@ -30,7 +30,7 @@ func GetInitContainers(devfile v1alpha1.DevWorkspaceTemplateSpecContent) (initCo
 		return nil, components, nil
 	}
 
-	initCommands, err := getCommandsForIds(events.PreStart, commands)
+	initCommands, err := getCommandsForIDs(events.PreStart, commands)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -38,7 +38,7 @@ func GetInitContainers(devfile v1alpha1.DevWorkspaceTemplateSpecContent) (initCo
 	if err = checkEventCommandsValidity(initCommands); err != nil {
 		return nil, nil, err
 	}
-	initComponentKeys, err := commandListToComponentKeys(initCommands)
+	initComponentIDs, err := commandListToComponentID(initCommands)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -46,11 +46,11 @@ func GetInitContainers(devfile v1alpha1.DevWorkspaceTemplateSpecContent) (initCo
 	// Need to also consider components that are *both* init containers and in the main deployment
 	// Example: component is referenced in both a prestart event and a regular, non-prestart command
 	// TODO: Figure out details of handling postStop commands, since they should not be included in main deployment
-	nonInitCommands, err := removeCommandsByKeys(events.PreStart, commands)
+	nonInitCommands, err := removeCommandsByIDs(events.PreStart, commands)
 	if err != nil {
 		return nil, nil, err
 	}
-	mainComponentKeys, err := commandListToComponentKeys(nonInitCommands)
+	mainComponentIDs, err := commandListToComponentID(nonInitCommands)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -60,9 +60,9 @@ func GetInitContainers(devfile v1alpha1.DevWorkspaceTemplateSpecContent) (initCo
 		if err != nil {
 			return nil, nil, err
 		}
-		if initComponentKeys[componentID] {
+		if initComponentIDs[componentID] {
 			initContainers = append(initContainers, component)
-			if mainComponentKeys[componentID] {
+			if mainComponentIDs[componentID] {
 				// Component is *also* a main component.
 				mainComponents = append(mainComponents, component)
 			}

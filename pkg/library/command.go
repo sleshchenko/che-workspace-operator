@@ -26,11 +26,11 @@ func getCommandType(command v1alpha1.Command) (v1alpha1.CommandType, error) {
 	return command.CommandType, nil
 }
 
-func getCommandsForIds(ids []string, commands []v1alpha1.Command) ([]v1alpha1.Command, error) {
+func getCommandsForIDs(ids []string, commands []v1alpha1.Command) ([]v1alpha1.Command, error) {
 	var resolvedCommands []v1alpha1.Command
 
 	for _, id := range ids {
-		resolvedCommand, err := getCommandById(id, commands)
+		resolvedCommand, err := getCommandByID(id, commands)
 		if err != nil {
 			return nil, err
 		}
@@ -40,21 +40,21 @@ func getCommandsForIds(ids []string, commands []v1alpha1.Command) ([]v1alpha1.Co
 	return resolvedCommands, nil
 }
 
-func getCommandById(id string, commands []v1alpha1.Command) (*v1alpha1.Command, error) {
+func getCommandByID(id string, commands []v1alpha1.Command) (*v1alpha1.Command, error) {
 	for _, command := range commands {
-		commandKey, err := command.Key()
+		commandID, err := command.Key()
 		if err != nil {
 			return nil, err
 		}
-		if commandKey == id {
+		if commandID == id {
 			return &command, nil
 		}
 	}
 	return nil, fmt.Errorf("no command with key %s is defined", id)
 }
 
-func commandListToComponentKeys(commands []v1alpha1.Command) (map[string]bool, error) {
-	componentKeys := map[string]bool{}
+func commandListToComponentID(commands []v1alpha1.Command) (map[string]bool, error) {
+	componentIDs := map[string]bool{}
 	for _, command := range commands {
 		commandType, err := getCommandType(command)
 		if err != nil {
@@ -62,26 +62,27 @@ func commandListToComponentKeys(commands []v1alpha1.Command) (map[string]bool, e
 		}
 		switch commandType {
 		case v1alpha1.ApplyCommandType:
-			componentKeys[command.Apply.Component] = true
+			componentIDs[command.Apply.Component] = true
 		case v1alpha1.ExecCommandType:
 			// TODO: This will require special handling (how do we handle prestart exec?)
-			componentKeys[command.Exec.Component] = true
+			componentIDs[command.Exec.Component] = true
 		case v1alpha1.CompositeCommandType:
 			// TODO: Handle composite commands: what if an init command is composite and refers to other commands
 		default: // Ignore
 		}
 	}
-	return componentKeys, nil
+	return componentIDs, nil
 }
 
-func removeCommandsByKeys(keys []string, commands []v1alpha1.Command) ([]v1alpha1.Command, error) {
+func removeCommandsByIDs(IDs []string, commands []v1alpha1.Command) ([]v1alpha1.Command, error) {
+	toRemove := stringListToMap(IDs)
 	var filtered []v1alpha1.Command
 	for _, command := range commands {
 		key, err := command.Key()
 		if err != nil {
 			return nil, err
 		}
-		if !listContains(key, keys) {
+		if !toRemove[key] {
 			filtered = append(filtered, command)
 		}
 	}

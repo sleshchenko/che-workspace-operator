@@ -61,6 +61,11 @@ func TestGetInitContainers(t *testing.T) {
 		t.Run(tt.Name, func(t *testing.T) {
 			// sanity check that file reads correctly.
 			assert.True(t, len(tt.Input.Components) > 0, "Input defines no components")
+			if tt.Output.ErrRegexp != nil && len(*tt.Output.ErrRegexp) > 0 &&
+				(len(tt.Output.InitContainers) > 0 || len(tt.Output.MainContainers) > 0) {
+				t.Fatal("No init containers or main containers could be configured when error is expected")
+			}
+
 			gotInitContainers, gotMainComponents, err := GetInitContainers(tt.Input)
 			if tt.Output.ErrRegexp != nil && assert.Error(t, err) {
 				assert.Regexp(t, *tt.Output.ErrRegexp, err.Error(), "Error message should match")

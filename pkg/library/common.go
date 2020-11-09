@@ -12,6 +12,14 @@
 
 package library
 
+func stringListToMap(list []string) map[string]bool {
+	res := map[string]bool{}
+	for _, item := range list {
+		res[item] = true
+	}
+	return res
+}
+
 func listContains(query string, list []string) bool {
 	for _, elem := range list {
 		if query == elem {

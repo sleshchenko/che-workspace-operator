@@ -51,7 +51,7 @@ type WorkspaceRoutingReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-	// GetSolverFunc is an optional function that will be used to get solvers for a particular workspaceRouting
+	// GetSolverFunc is a function that will be used to get solvers for a particular workspaceRouting
 	GetSolverFunc WorkspaceRoutingSolverFunc
 }
 
@@ -237,7 +237,7 @@ func (r *WorkspaceRoutingReconciler) reconcileStatus(
 	return r.Status().Update(context.TODO(), instance)
 }
 
-func getSolverForRoutingClass(routingClass controllerv1alpha1.WorkspaceRoutingClass) (solvers.RoutingSolver, error) {
+func GetEmbeddedSolvers(routingClass controllerv1alpha1.WorkspaceRoutingClass) (solvers.RoutingSolver, error) {
 	if routingClass == "" {
 		routingClass = controllerv1alpha1.WorkspaceRoutingClass(config.ControllerCfg.GetDefaultRoutingClass())
 	}
@@ -303,7 +303,7 @@ func (r *WorkspaceRoutingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		bld.Owns(&routeV1.Route{})
 	}
 	if r.GetSolverFunc == nil {
-		r.GetSolverFunc = getSolverForRoutingClass
+		return errors.New("solvers function is required")
 	}
 	bld.WithEventFilter(getRoutingPredicatesForSolverFunc(r.GetSolverFunc))
 

@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	maputils "github.com/devfile/devworkspace-operator/internal/map"
-
 	"github.com/devfile/devworkspace-operator/pkg/common"
 
 	devworkspace "github.com/devfile/api/pkg/apis/workspaces/v1alpha2"
@@ -212,16 +210,6 @@ func getSpecDeployment(
 		if config.ControllerCfg.GetWebhooksEnabled() == "true" {
 			return nil, errors.New("workspace must have creator specified to be run. Recreate it to fix an issue")
 		}
-	}
-
-	restrictedAccess, present := workspace.Annotations[config.WorkspaceRestrictedAccessAnnotation]
-	if present {
-		if config.ControllerCfg.GetWebhooksEnabled() == "false" {
-			return nil, errors.New("workspace is configured to have restricted access but webhooks are not enabled")
-		}
-
-		deployment.Annotations = maputils.Append(deployment.Annotations, config.WorkspaceRestrictedAccessAnnotation, restrictedAccess)
-		deployment.Spec.Template.Annotations = maputils.Append(deployment.Spec.Template.Annotations, config.WorkspaceRestrictedAccessAnnotation, restrictedAccess)
 	}
 
 	err = controllerutil.SetControllerReference(workspace, deployment, scheme)

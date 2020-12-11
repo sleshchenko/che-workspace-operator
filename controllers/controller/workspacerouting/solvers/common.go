@@ -43,7 +43,7 @@ func getDiscoverableServicesForEndpoints(endpoints map[string]controllerv1alpha1
 					Name:       common.EndpointName(endpoint.Name),
 					Protocol:   corev1.ProtocolTCP,
 					Port:       int32(endpoint.TargetPort),
-					TargetPort: intstr.FromInt(endpoint.TargetPort),
+					TargetPort: intstr.FromInt(int(endpoint.TargetPort)),
 				}
 				services = append(services, corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -69,6 +69,7 @@ func getDiscoverableServicesForEndpoints(endpoints map[string]controllerv1alpha1
 }
 
 func getServicesForEndpoints(endpoints map[string]controllerv1alpha1.EndpointList, meta WorkspaceMetadata) []corev1.Service {
+	var services []corev1.Service
 	var servicePorts []corev1.ServicePort
 	for _, machineEndpoints := range endpoints {
 		for _, endpoint := range machineEndpoints {
@@ -94,22 +95,22 @@ func getServicesForEndpoints(endpoints map[string]controllerv1alpha1.EndpointLis
 		}
 	}
 
-	return []corev1.Service{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      common.ServiceName(meta.WorkspaceId),
-				Namespace: meta.Namespace,
-				Labels: map[string]string{
-					config.WorkspaceIDLabel: meta.WorkspaceId,
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Ports:    servicePorts,
-				Selector: meta.PodSelector,
-				Type:     corev1.ServiceTypeClusterIP,
+	services = append(services, corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.ServiceName(meta.WorkspaceId),
+			Namespace: meta.Namespace,
+			Labels: map[string]string{
+				config.WorkspaceIDLabel: meta.WorkspaceId,
 			},
 		},
-	}
+		Spec: corev1.ServiceSpec{
+			Ports:    servicePorts,
+			Selector: meta.PodSelector,
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	})
+
+	return services
 }
 
 func getRoutingForSpec(endpoints map[string]controllerv1alpha1.EndpointList, meta WorkspaceMetadata) ([]v1beta1.Ingress, []routeV1.Route) {
@@ -131,7 +132,7 @@ func getRoutingForSpec(endpoints map[string]controllerv1alpha1.EndpointList, met
 }
 
 func getRouteForEndpoint(endpoint devworkspace.Endpoint, meta WorkspaceMetadata) routeV1.Route {
-	targetEndpoint := intstr.FromInt(endpoint.TargetPort)
+	targetEndpoint := intstr.FromInt(int(endpoint.TargetPort))
 	endpointName := common.EndpointName(endpoint.Name)
 	return routeV1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,15 +141,12 @@ func getRouteForEndpoint(endpoint devworkspace.Endpoint, meta WorkspaceMetadata)
 			Labels: map[string]string{
 				config.WorkspaceIDLabel: meta.WorkspaceId,
 			},
-			Annotations: routeAnnotations(endpointName),
+			Annotations: map[string]string{
+				config.WorkspaceEndpointNameAnnotation: endpoint.Name,
+			},
 		},
 		Spec: routeV1.RouteSpec{
-			Host: common.WorkspaceHostname(meta.WorkspaceId, meta.RoutingSuffix),
-			Path: common.EndpointPath(endpointName),
-			TLS: &routeV1.TLSConfig{
-				InsecureEdgeTerminationPolicy: routeV1.InsecureEdgeTerminationPolicyRedirect,
-				Termination:                   routeV1.TLSTerminationEdge,
-			},
+			Host: common.EndpointHostname(meta.WorkspaceId, endpointName, endpoint.TargetPort, meta.RoutingSuffix),
 			To: routeV1.RouteTargetReference{
 				Kind: "Service",
 				Name: common.ServiceName(meta.WorkspaceId),
@@ -161,9 +159,15 @@ func getRouteForEndpoint(endpoint devworkspace.Endpoint, meta WorkspaceMetadata)
 }
 
 func getIngressForEndpoint(endpoint devworkspace.Endpoint, meta WorkspaceMetadata) v1beta1.Ingress {
-	targetEndpoint := intstr.FromInt(endpoint.TargetPort)
+	targetEndpoint := intstr.FromInt(int(endpoint.TargetPort))
 	endpointName := common.EndpointName(endpoint.Name)
 	hostname := common.EndpointHostname(meta.WorkspaceId, endpointName, endpoint.TargetPort, meta.RoutingSuffix)
+	annotations := map[string]string{
+		config.WorkspaceEndpointNameAnnotation: endpoint.Name,
+	}
+	for k, v := range ingressAnnotations {
+		annotations[k] = v
+	}
 	ingressPathType := v1beta1.PathTypeImplementationSpecific
 	return v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,7 +176,7 @@ func getIngressForEndpoint(endpoint devworkspace.Endpoint, meta WorkspaceMetadat
 			Labels: map[string]string{
 				config.WorkspaceIDLabel: meta.WorkspaceId,
 			},
-			Annotations: nginxIngressAnnotations(endpoint.Name),
+			Annotations: annotations,
 		},
 		Spec: v1beta1.IngressSpec{
 			Rules: []v1beta1.IngressRule{

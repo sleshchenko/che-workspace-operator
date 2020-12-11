@@ -54,7 +54,7 @@ type WorkspaceRoutingReconciler struct {
 func (r *WorkspaceRoutingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 
-	reqLogger := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger := r.Log.WithValues("Request.OperatorNamespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Reconciling WorkspaceRouting")
 
 	// Fetch the WorkspaceRouting instance
@@ -79,7 +79,7 @@ func (r *WorkspaceRoutingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	if instance.Status.Phase == controllerv1alpha1.RoutingFailed {
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, err
 	}
 
 	solver, err := getSolverForRoutingClass(instance.Spec.RoutingClass)

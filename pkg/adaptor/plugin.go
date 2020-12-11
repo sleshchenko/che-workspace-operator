@@ -247,7 +247,7 @@ func getMetasForComponents(components []devworkspace.Component) (metas []brokerM
 		}
 
 		if err != nil {
-			return nil, nil, &DownloadMetasError{Plugin: component.Name, Err: err}
+			return nil, nil, err
 		}
 		metas = append(metas, *meta)
 		aliases[meta.ID] = component.Name

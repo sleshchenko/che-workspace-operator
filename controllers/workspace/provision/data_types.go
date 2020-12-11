@@ -24,7 +24,6 @@ type ProvisioningStatus struct {
 	Requeue     bool
 	FailStartup bool
 	Err         error
-	Message     string
 }
 
 type ClusterAPI struct {

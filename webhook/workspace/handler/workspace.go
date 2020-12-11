@@ -15,8 +15,6 @@ import (
 	"fmt"
 	"net/http"
 
-	maputils "github.com/devfile/devworkspace-operator/internal/map"
-
 	devworkspacev1alpha1 "github.com/devfile/api/pkg/apis/workspaces/v1alpha1"
 	devworkspacev1alpha2 "github.com/devfile/api/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/devworkspace-operator/pkg/config"
@@ -30,8 +28,10 @@ func (h *WebhookHandler) MutateWorkspaceV1alpha1OnCreate(_ context.Context, req 
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	wksp.Labels = maputils.Append(wksp.Labels, config.WorkspaceCreatorLabel, req.UserInfo.UID)
-
+	if wksp.Labels == nil {
+		wksp.Labels = map[string]string{}
+	}
+	wksp.Labels[config.WorkspaceCreatorLabel] = req.UserInfo.UID
 	return h.returnPatched(req, wksp)
 }
 
@@ -42,8 +42,10 @@ func (h *WebhookHandler) MutateWorkspaceV1alpha2OnCreate(_ context.Context, req 
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	wksp.Labels = maputils.Append(wksp.Labels, config.WorkspaceCreatorLabel, req.UserInfo.UID)
-
+	if wksp.Labels == nil {
+		wksp.Labels = map[string]string{}
+	}
+	wksp.Labels[config.WorkspaceCreatorLabel] = req.UserInfo.UID
 	return h.returnPatched(req, wksp)
 }
 
@@ -54,7 +56,7 @@ func (h *WebhookHandler) MutateWorkspaceV1alpha1OnUpdate(_ context.Context, req 
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	allowed, msg := h.checkRestrictedAccessWorkspaceV1alpha1(oldWksp, newWksp, req.UserInfo.UID)
+	allowed, msg := h.handleImmutableWorkspaceV1alpha1(oldWksp, newWksp, req.UserInfo.UID)
 	if !allowed {
 		return admission.Denied(msg)
 	}
@@ -84,7 +86,7 @@ func (h *WebhookHandler) MutateWorkspaceV1alpha2OnUpdate(_ context.Context, req 
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	allowed, msg := h.checkRestrictedAccessWorkspaceV1alpha2(oldWksp, newWksp, req.UserInfo.UID)
+	allowed, msg := h.handleImmutableWorkspaceV1alpha2(oldWksp, newWksp, req.UserInfo.UID)
 	if !allowed {
 		return admission.Denied(msg)
 	}

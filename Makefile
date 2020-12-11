@@ -27,7 +27,6 @@ REGISTRY_ENABLED ?= true
 DEVWORKSPACE_API_VERSION ?= aeda60d4361911da85103f224644bfa792498499
 
 #internal params
-DEVWORKSPACE_CTRL_SA=devworkspace-controller-serviceaccount
 INTERNAL_TMP_DIR=/tmp/devworkspace-controller
 BUMPED_KUBECONFIG=$(INTERNAL_TMP_DIR)/kubeconfig
 RELATED_IMAGES_FILE=$(INTERNAL_TMP_DIR)/environment
@@ -153,23 +152,23 @@ endif
 	cp $(CONFIG_FILE) $(BUMPED_KUBECONFIG)
 
 _login_with_devworkspace_sa:
-	$(eval SA_TOKEN := $(shell $(K8S_CLI) get secrets -o=json -n $(NAMESPACE) | jq -r '[.items[] | select (.type == "kubernetes.io/service-account-token" and .metadata.annotations."kubernetes.io/service-account.name" == "$(DEVWORKSPACE_CTRL_SA)")][0].data.token' | base64 --decode ))
+	$(eval SA_TOKEN := $(shell $(K8S_CLI) get secrets -o=json -n $(NAMESPACE) | jq -r '[.items[] | select (.type == "kubernetes.io/service-account-token" and .metadata.annotations."kubernetes.io/service-account.name" == "default")][0].data.token' | base64 --decode ))
 	echo "Logging as controller's SA in $(NAMESPACE)"
 	oc login --token=$(SA_TOKEN) --kubeconfig=$(BUMPED_KUBECONFIG)
 
 ### run: Run against the configured Kubernetes cluster in ~/.kube/config
-run: _print_vars _gen_configuration_env _bump_kubeconfig _login_with_devworkspace_sa _eval_plugin_registry_url
+run: _print_vars _gen_configuration_env _bump_kubeconfig _login_with_devworkspace_sa
 	source $(RELATED_IMAGES_FILE)
 	export KUBECONFIG=$(BUMPED_KUBECONFIG)
-	CONTROLLER_SERVICE_ACCOUNT_NAME=$(DEVWORKSPACE_CTRL_SA) \
+	CONTROLLER_SERVICE_ACCOUNT_NAME=default \
 		WATCH_NAMESPACE=$(NAMESPACE) \
 		go run ./main.go
 
-### debug: Run controller locally with debugging enabled, watching cluster defined in ~/.kube/config
-debug: _print_vars _gen_configuration_env _bump_kubeconfig _login_with_devworkspace_sa _eval_plugin_registry_url
+
+debug: _print_vars _gen_configuration_env _bump_kubeconfig _login_with_devworkspace_sa
 	source $(RELATED_IMAGES_FILE)
 	export KUBECONFIG=$(BUMPED_KUBECONFIG)
-	CONTROLLER_SERVICE_ACCOUNT_NAME=$(DEVWORKSPACE_CTRL_SA) \
+	CONTROLLER_SERVICE_ACCOUNT_NAME=default \
 		WATCH_NAMESPACE=$(NAMESPACE) \
 		dlv debug --listen=:2345 --headless=true --api-version=2 ./main.go --
 
@@ -178,7 +177,7 @@ install_crds: _kustomize _init_devworkspace_crds
 	$(KUSTOMIZE) build config/crd | $(K8S_CLI) apply -f -
 
 ### install: Install controller in the configured Kubernetes cluster in ~/.kube/config
-install: _print_vars _kustomize _init_devworkspace_crds _create_namespace _eval_plugin_registry_url
+install: _print_vars _kustomize _init_devworkspace_crds _create_namespace deploy_registry
 	mv config/cert-manager/kustomization.yaml config/cert-manager/kustomization.yaml.bak
 	mv config/service-ca/kustomization.yaml config/service-ca/kustomization.yaml.bak
 	mv config/base/config.properties config/base/config.properties.bak
@@ -236,7 +235,7 @@ endif
 
 ### manifests: Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." \
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." \
 			output:crd:artifacts:config=config/crd/bases \
 			output:rbac:artifacts:config=config/components/rbac
 	patch/patch_crds.sh
@@ -299,14 +298,6 @@ endif
 ### install_cert_manager: install Cert Mananger v1.0.4 on the cluster
 install_cert_manager:
 	kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.yaml
-
-# export plugin registry url for other rules to use
-_eval_plugin_registry_url: deploy_registry
-ifeq ($(PLATFORM),kubernetes)
-	$(eval export PLUGIN_REGISTRY_URL=http://che-plugin-registry.$(ROUTING_SUFFIX)/v3)
-else
-	$(eval export PLUGIN_REGISTRY_URL=http://$(shell $(K8S_CLI) get route -n $(NAMESPACE) che-plugin-registry -o=yaml | yq -r '.spec.host')/v3)
-endif
 
 _kustomize:
 ifeq (, $(shell which kustomize))

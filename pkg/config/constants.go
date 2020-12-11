@@ -49,10 +49,9 @@ const (
 	// WorkspaceCreatorLabel is the label key for storing the UID of the user who created the workspace
 	WorkspaceCreatorLabel = "controller.devfile.io/creator"
 
-	// WorkspaceRestrictedAccessAnnotation marks the intention that workspace access is restricted to only the creator; setting this
+	// WorkspaceImmutableAnnotation marks the intention that workspace access is restricted to only the creator; setting this
 	// annotation will cause workspace start to fail if webhooks are disabled.
-	// Operator also propagates it to the workspace-related objects to perform authorization.
-	WorkspaceRestrictedAccessAnnotation = "controller.devfile.io/restricted-access"
+	WorkspaceImmutableAnnotation = "controller.devfile.io/restricted-access"
 
 	// WorkspaceDiscoverableServiceAnnotation marks a service in a workspace as created for a discoverable endpoint,
 	// as opposed to a service created to support the workspace itself.

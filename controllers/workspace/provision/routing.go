@@ -15,12 +15,14 @@ package provision
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	devworkspace "github.com/devfile/api/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/devworkspace-operator/apis/controller/v1alpha1"
 	"github.com/devfile/devworkspace-operator/pkg/config"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,26 +37,23 @@ type RoutingProvisioningStatus struct {
 	ExposedEndpoints map[string]v1alpha1.ExposedEndpointList
 }
 
-var routingDiffOpts = cmp.Options{
-	cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{}, "TypeMeta", "Status"),
-	// To ensure updates to annotations and labels are noticed, we need to ignore all fields in ObjectMeta
-	// *except* labels and annotations.
-	cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{},
-		"ObjectMeta.Name",
-		"ObjectMeta.GenerateName",
-		"ObjectMeta.Namespace",
-		"ObjectMeta.SelfLink",
-		"ObjectMeta.UID",
-		"ObjectMeta.ResourceVersion",
-		"ObjectMeta.Generation",
-		"ObjectMeta.CreationTimestamp",
-		"ObjectMeta.DeletionTimestamp",
-		"ObjectMeta.DeletionGracePeriodSeconds",
-		"ObjectMeta.OwnerReferences",
-		"ObjectMeta.Finalizers",
-		"ObjectMeta.ClusterName",
-		"ObjectMeta.ManagedFields"),
-}
+var routingDiffOpts = cmp.FilterPath(func(p cmp.Path) bool {
+	if p.String() == "ObjectMeta" {
+		return false
+	}
+
+	if strings.HasPrefix(p.String(), "ObjectMeta") {
+		//log.Info("path: " + p.String())
+		if strings.HasPrefix(p.String(), "ObjectMeta.Labels") ||
+			strings.HasPrefix(p.String(), "ObjectMeta.Annotations") {
+			// we ignore all ObjectMeta.* except labels and annotations
+			//log.Info("path: " + p.String() + ": false")
+			return false
+		}
+	}
+	//log.Info("path: " + p.String() + ": true	")
+	return true
+}, cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{}, "ObjectMeta", "TypeMeta", "Status"))
 
 func SyncRoutingToCluster(
 	workspace *devworkspace.DevWorkspace,
@@ -90,6 +89,8 @@ func SyncRoutingToCluster(
 	}
 
 	if !cmp.Equal(specRouting, clusterRouting, routingDiffOpts) {
+		diff := cmp.Diff(specRouting, clusterRouting, routingDiffOpts)
+		log.Info("We are interested in made routing updates", "diff", diff)
 		clusterRouting.Labels = specRouting.Labels
 		clusterRouting.Annotations = specRouting.Annotations
 		clusterRouting.Spec = specRouting.Spec
@@ -103,6 +104,8 @@ func SyncRoutingToCluster(
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Requeue: true},
 		}
+	} else {
+		log.Info("We are not interested in made routing updates")
 	}
 
 	if clusterRouting.Status.Phase == v1alpha1.RoutingFailed {

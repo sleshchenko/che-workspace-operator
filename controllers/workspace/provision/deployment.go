@@ -93,6 +93,7 @@ func SyncDeploymentToCluster(
 	}
 
 	if !cmp.Equal(specDeployment, clusterDeployment, deploymentDiffOpts) {
+		clusterAPI.Logger.Info("deployment needs to be updated", "diff",  cmp.Diff(specDeployment, clusterDeployment, deploymentDiffOpts))
 		clusterAPI.Logger.Info("Updating deployment...")
 		clusterDeployment.Spec = specDeployment.Spec
 		err := clusterAPI.Client.Update(context.TODO(), clusterDeployment)

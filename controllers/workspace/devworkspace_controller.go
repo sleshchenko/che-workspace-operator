@@ -16,7 +16,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"os"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strings"
 	"time"
 
@@ -386,5 +390,30 @@ func (r *DevWorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&controllerv1alpha1.Component{}).
 		Owns(&controllerv1alpha1.WorkspaceRouting{}).
+		WithEventFilter(logObjects(ctrl.Log.WithName("predicates"))).
 		Complete(r)
+}
+
+
+func logObjects(l logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(ev event.CreateEvent) bool {
+			l.Info("CreateEvent is received", "kind", ev.Object.GetObjectKind().GroupVersionKind().Kind, "name",ev.Meta.GetName())
+			return true
+		},
+		DeleteFunc: func(ev event.DeleteEvent) bool {
+			l.Info("DeleteEvent is received", "kind", ev.Object.GetObjectKind(), "name",ev.Meta.GetName())
+			return true
+		},
+		UpdateFunc: func(ev event.UpdateEvent) bool {
+			l.Info("UpdateEvent is received", "kind", ev.ObjectOld.GetObjectKind().GroupVersionKind().Kind, "name", ev.MetaOld.GetName(), "type", reflect.TypeOf(ev.ObjectNew).String(),
+				"diff", cmp.Diff(ev.ObjectNew, ev.ObjectOld, cmp.Options{}))
+
+			return true
+		},
+		GenericFunc: func(ev event.GenericEvent) bool {
+			l.Info("GenericEvent is received", "kind", ev.Object.GetObjectKind(), "name",ev.Meta.GetName())
+			return true
+		},
+	}
 }

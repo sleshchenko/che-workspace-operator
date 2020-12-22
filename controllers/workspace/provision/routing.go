@@ -16,6 +16,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/devfile/devworkspace-operator/internal/advdiff"
+
 	devworkspace "github.com/devfile/api/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/devworkspace-operator/apis/controller/v1alpha1"
 	"github.com/devfile/devworkspace-operator/pkg/config"
@@ -36,24 +38,8 @@ type RoutingProvisioningStatus struct {
 }
 
 var routingDiffOpts = cmp.Options{
+	advdiff.IgnoreChildrenExcept(v1alpha1.WorkspaceRouting{}, "ObjectMeta", "Labels", "Annotations"),
 	cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{}, "TypeMeta", "Status"),
-	// To ensure updates to annotations and labels are noticed, we need to ignore all fields in ObjectMeta
-	// *except* labels and annotations.
-	cmpopts.IgnoreFields(v1alpha1.WorkspaceRouting{},
-		"ObjectMeta.Name",
-		"ObjectMeta.GenerateName",
-		"ObjectMeta.Namespace",
-		"ObjectMeta.SelfLink",
-		"ObjectMeta.UID",
-		"ObjectMeta.ResourceVersion",
-		"ObjectMeta.Generation",
-		"ObjectMeta.CreationTimestamp",
-		"ObjectMeta.DeletionTimestamp",
-		"ObjectMeta.DeletionGracePeriodSeconds",
-		"ObjectMeta.OwnerReferences",
-		"ObjectMeta.Finalizers",
-		"ObjectMeta.ClusterName",
-		"ObjectMeta.ManagedFields"),
 }
 
 func SyncRoutingToCluster(
@@ -90,6 +76,8 @@ func SyncRoutingToCluster(
 	}
 
 	if !cmp.Equal(specRouting, clusterRouting, routingDiffOpts) {
+		diff := cmp.Diff(specRouting, clusterRouting, routingDiffOpts)
+		log.Info("We are interested in made routing updates", "diff", diff)
 		clusterRouting.Labels = specRouting.Labels
 		clusterRouting.Annotations = specRouting.Annotations
 		clusterRouting.Spec = specRouting.Spec
@@ -103,6 +91,8 @@ func SyncRoutingToCluster(
 		return RoutingProvisioningStatus{
 			ProvisioningStatus: ProvisioningStatus{Requeue: true},
 		}
+	} else {
+		log.Info("We are not interested in made routing updates")
 	}
 
 	if clusterRouting.Status.Phase == v1alpha1.RoutingFailed {

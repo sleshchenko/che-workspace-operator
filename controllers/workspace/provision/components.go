@@ -17,6 +17,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/devfile/devworkspace-operator/internal/advdiff"
+
 	devworkspace "github.com/devfile/api/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/devworkspace-operator/apis/controller/v1alpha1"
 	"github.com/devfile/devworkspace-operator/controllers/controller/component/cmd_terminal"
@@ -41,24 +43,8 @@ type ComponentProvisioningStatus struct {
 }
 
 var componentDiffOpts = cmp.Options{
+	advdiff.IgnoreChildrenExcept(v1alpha1.Component{}, "ObjectMeta", "Labels", "Annotations"),
 	cmpopts.IgnoreFields(v1alpha1.Component{}, "TypeMeta", "Status"),
-	// To ensure updates to annotations and labels are noticed, we need to ignore all fields in ObjectMeta
-	// *except* labels and annotations.
-	cmpopts.IgnoreFields(v1alpha1.Component{},
-		"ObjectMeta.Name",
-		"ObjectMeta.GenerateName",
-		"ObjectMeta.Namespace",
-		"ObjectMeta.SelfLink",
-		"ObjectMeta.UID",
-		"ObjectMeta.ResourceVersion",
-		"ObjectMeta.Generation",
-		"ObjectMeta.CreationTimestamp",
-		"ObjectMeta.DeletionTimestamp",
-		"ObjectMeta.DeletionGracePeriodSeconds",
-		"ObjectMeta.OwnerReferences",
-		"ObjectMeta.Finalizers",
-		"ObjectMeta.ClusterName",
-		"ObjectMeta.ManagedFields"),
 }
 
 func SyncComponentsToCluster(
@@ -251,8 +237,12 @@ func sortComponents(spec, cluster []v1alpha1.Component) (create, update, delete 
 		if contains, idx := listContainsByName(specComponent, cluster); contains {
 			clusterComponent := cluster[idx]
 			if !cmp.Equal(specComponent, clusterComponent, componentDiffOpts) {
+				diff := cmp.Diff(specComponent, clusterComponent, componentDiffOpts)
+				log.Info("We are interested in made routing updates", "diff", diff)
 				clusterComponent.Spec = specComponent.Spec
 				update = append(update, clusterComponent)
+			} else {
+				log.Info("We are not interested in made routing updates")
 			}
 		} else {
 			create = append(create, specComponent)

@@ -103,7 +103,7 @@ _gen_configuration_env:
 ifeq ($(PLATFORM),kubernetes)
 	echo "export WEBHOOK_SECRET_NAME=devworkspace-operator-webhook-cert" >> $(RELATED_IMAGES_FILE)
 endif
-	cat ./config/components/manager/manager.yaml \
+	cat ./deploy/templates/components/manager/manager.yaml \
 		| yq -r \
 			'.spec.template.spec.containers[]?.env[] | select(.name | startswith("RELATED_IMAGE")) | "export \(.name)=\"$${\(.name):-\(.value)}\""' \
 		>> $(RELATED_IMAGES_FILE)
@@ -175,25 +175,21 @@ debug: _print_vars _gen_configuration_env _bump_kubeconfig _login_with_devworksp
 		WATCH_NAMESPACE=$(NAMESPACE) \
 		dlv debug --listen=:2345 --headless=true --api-version=2 ./main.go --
 
-### install_crds: Install CRDs into a cluster
-install_crds: _kustomize _init_devworkspace_crds
-	$(KUSTOMIZE) build config/crd | $(K8S_CLI) apply -f -
-
 ### install: Install controller in the configured Kubernetes cluster in ~/.kube/config
 install: _print_vars _kustomize _init_devworkspace_crds _create_namespace _eval_plugin_registry_url generate_deployment
 ifeq ($(PLATFORM),kubernetes)
-	$(K8S_CLI) apply -f config/current/kubernetes/combined.yaml || true
+	$(K8S_CLI) apply -f deploy/current/kubernetes/combined.yaml || true
 else
-	$(K8S_CLI) apply -f config/current/openshift/combined.yaml || true
+	$(K8S_CLI) apply -f deploy/current/openshift/combined.yaml || true
 endif
 
 ### generate_deployment: Generate files used for deployment from kustomize templates, using environment variables
 generate_deployment:
-	config/generate-templates.sh
+	deploy/generate-deployment.sh
 
 ### generate_default_deployment: Generate files used for deployment from kustomize templates with default values
 generate_default_deployment:
-	config/generate-templates.sh --use-defaults
+	deploy/generate-deployment.sh --use-defaults
 
 ### install_plugin_templates: Deploy sample plugin templates to namespace devworkspace-plugins:
 install_plugin_templates: _print_vars
@@ -216,9 +212,9 @@ uninstall: _kustomize
 	$(K8S_CLI) delete devworkspacetemplates.workspace.devfile.io --all-namespaces --all || true
 	$(K8S_CLI) delete workspaceroutings.controller.devfile.io --all-namespaces --all --wait || true
 ifeq ($(PLATFORM),kubernetes)
-	$(KUSTOMIZE) build config/cert-manager | $(K8S_CLI) delete --ignore-not-found -f -
+	$(KUSTOMIZE) build deploy/templates/cert-manager | $(K8S_CLI) delete --ignore-not-found -f -
 else
-	$(KUSTOMIZE) build config/service-ca | $(K8S_CLI) delete --ignore-not-found -f -
+	$(KUSTOMIZE) build deploy/templates/service-ca | $(K8S_CLI) delete --ignore-not-found -f -
 endif
 	$(K8S_CLI) delete all -l "app.kubernetes.io/part-of=devworkspace-operator" --all-namespaces
 	$(K8S_CLI) delete mutatingwebhookconfigurations.admissionregistration.k8s.io controller.devfile.io --ignore-not-found
@@ -227,18 +223,18 @@ endif
 
 ### deploy_registry: Deploy plugin registry
 deploy_registry: _print_vars _create_namespace
-	$(K8S_CLI) apply -f config/registry/local -n $(NAMESPACE)
+	$(K8S_CLI) apply -f deploy/templates/registry/local -n $(NAMESPACE)
 ifeq ($(PLATFORM),kubernetes)
-	envsubst < config/registry/local/k8s/ingress.yaml | $(K8S_CLI) apply -n $(NAMESPACE) -f -
+	envsubst < deploy/templates/registry/local/k8s/ingress.yaml | $(K8S_CLI) apply -n $(NAMESPACE) -f -
 else
-	$(K8S_CLI) apply -f config/registry/local/os -n $(NAMESPACE)
+	$(K8S_CLI) apply -f deploy/templates/registry/local/os -n $(NAMESPACE)
 endif
 
 ### manifests: Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." \
-			output:crd:artifacts:config=config/crd/bases \
-			output:rbac:artifacts:config=config/components/rbac
+			output:crd:artifacts:config=deploy/templates/crd/bases \
+			output:rbac:artifacts:config=deploy/templates/components/rbac
 	patch/patch_crds.sh
 
 ### fmt: Run go fmt against code

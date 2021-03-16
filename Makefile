@@ -180,6 +180,10 @@ ifeq ($(PLATFORM),kubernetes)
 else
 	$(K8S_CLI) apply -f deploy/current/openshift/combined.yaml || true
 endif
+	# workspacerouting is renamed into devworkspacerouting. It's here for a
+	# few releases to drop the garbage
+	$(K8S_CLI) delete workspaceroutings.controller.devfile.io --all || true
+	$(K8S_CLI) delete crd workspaceroutings.controller.devfile.io --ignore-not-found
 
 ### generate_deployment: Generate files used for deployment from kustomize templates, using environment variables
 generate_deployment: _kustomize
@@ -209,6 +213,11 @@ uninstall: generate_deployment
 	$(K8S_CLI) delete devworkspaces.workspace.devfile.io --all-namespaces --all --wait || true
 	$(K8S_CLI) delete devworkspacetemplates.workspace.devfile.io --all-namespaces --all || true
 	$(K8S_CLI) delete devworkspaceroutings.controller.devfile.io --all-namespaces --all --wait || true
+
+	# workspacerouting is renamed into devworkspacerouting. It's here for a
+	# few releases to drop the garbage
+	$(K8S_CLI) delete workspaceroutings.controller.devfile.io --all || true
+	$(K8S_CLI) delete crd workspaceroutings.controller.devfile.io --ignore-not-found
 
 ifeq ($(PLATFORM),kubernetes)
 	$(K8S_CLI) delete --ignore-not-found -f deploy/current/kubernetes/combined.yaml || true

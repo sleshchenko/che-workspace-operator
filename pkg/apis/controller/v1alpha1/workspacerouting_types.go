@@ -21,7 +21,7 @@ import (
 // +k8s:openapi-gen=true
 type WorkspaceRoutingSpec struct {
 	// WorkspaceId for the workspace being routed
-	WorkspaceId string `json:"workspaceId"`
+	WorkspaceId string `json:"devworkspaceId"`
 	// Class of the routing: this drives which Workspace Routing controller will manage this routing
 	RoutingClass WorkspaceRoutingClass `json:"routingClass,omitempty"`
 	// Routing suffix for cluster

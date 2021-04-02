@@ -31,6 +31,9 @@ spec:
         spec:
           description: WorkspaceRoutingSpec defines the desired state of WorkspaceRouting
           properties:
+            devworkspaceId:
+              description: WorkspaceId for the workspace being routed
+              type: string
             endpoints:
               additionalProperties:
                 items:
@@ -106,14 +109,11 @@ spec:
             routingSuffix:
               description: Routing suffix for cluster
               type: string
-            workspaceId:
-              description: WorkspaceId for the workspace being routed
-              type: string
           required:
+            - devworkspaceId
             - endpoints
             - podSelector
             - routingSuffix
-            - workspaceId
           type: object
         status:
           description: WorkspaceRoutingStatus defines the observed state of WorkspaceRouting

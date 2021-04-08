@@ -21,11 +21,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-logr/logr"
-
 	dw "github.com/devfile/api/v2/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/devworkspace-operator/apis/controller/v1alpha1"
 	"github.com/devfile/devworkspace-operator/controllers/workspace/provision"
+
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclock "k8s.io/apimachinery/pkg/util/clock"
@@ -38,13 +38,11 @@ type currentStatus struct {
 	phase dw.DevWorkspacePhase
 }
 
-func initCurrentStatus() currentStatus {
-	return currentStatus{
-		workspaceConditions: workspaceConditions{
-			conditions: map[dw.DevWorkspaceConditionType]dw.DevWorkspaceCondition{},
-		},
-		phase: dw.DevWorkspaceStatusStarting,
+func newStatusWithPhase(phase dw.DevWorkspacePhase) currentStatus {
+	status := currentStatus{
+		phase: phase,
 	}
+	return status
 }
 
 // clock is used to set status condition timestamps.

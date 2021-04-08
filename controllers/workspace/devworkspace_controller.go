@@ -37,12 +37,15 @@ import (
 	coputil "github.com/redhat-cop/operator-utils/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	dw "github.com/devfile/api/v2/pkg/apis/workspaces/v1alpha2"
 )
@@ -116,6 +119,18 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 		return reconcile.Result{Requeue: true}, err
 	}
 
+	// Stop failed workspaces
+	if workspace.Status.Phase == dw.DevWorkspaceStatusFailed && workspace.Spec.Started {
+		patch := []byte(`{"spec":{"started": false}}`)
+		err := r.Client.Patch(context.Background(), workspace, client.RawPatch(types.StrategicMergePatchType, patch))
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Requeue reconcile to stop workspace
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// Handle stopped workspaces
 	if !workspace.Spec.Started {
 		timing.ClearAnnotations(workspace)
@@ -124,7 +139,7 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	}
 
 	// Prepare handling workspace status and condition
-	reconcileStatus := initCurrentStatus()
+	reconcileStatus := initStartingStatus()
 	clusterWorkspace := workspace.DeepCopy()
 	timingInfo := map[string]string{}
 	timing.SetTime(timingInfo, timing.DevWorkspaceStarted)
@@ -279,7 +294,16 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	deploymentStatus := provision.SyncDeploymentToCluster(workspace, allPodAdditions, serviceAcctName, clusterAPI)
 	if !deploymentStatus.Continue {
 		if deploymentStatus.FailStartup {
-			return r.failWorkspace(workspace, fmt.Sprintf("DevWorkspace spec is invalid: %s", deploymentStatus.Err), reqLogger, &reconcileStatus)
+			var message string
+			if deploymentStatus.Err != nil {
+				message = deploymentStatus.Err.Error()
+				reqLogger.Info(message)
+			} else {
+				message = deploymentStatus.Message
+				reqLogger.Info(message)
+			}
+
+			return r.failWorkspace(workspace, fmt.Sprintf("DevWorkspace spec is invalid: %s", message), reqLogger, &reconcileStatus)
 		}
 		reqLogger.Info("Waiting on deployment to be ready")
 		reconcileStatus.setConditionFalse(DeploymentReady, "Waiting for workspace deployment")
@@ -309,50 +333,42 @@ func (r *DevWorkspaceReconciler) stopWorkspace(workspace *dw.DevWorkspace, logge
 		Name:      common.DeploymentName(workspace.Status.DevWorkspaceId),
 		Namespace: workspace.Namespace,
 	}
-	status := &currentStatus{}
+	status := initStoppingStatus(workspace.Status)
 	err := r.Get(context.TODO(), namespaceName, workspaceDeployment)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
-			status.phase = dw.DevWorkspaceStatusStopped
-			return r.updateWorkspaceStatus(workspace, logger, status, reconcile.Result{}, nil)
+			changeToStoppedIfNeeded(&status)
+			return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
 		}
 		return reconcile.Result{}, err
 	}
 
-	status.phase = dw.DevWorkspaceStatusStopping
 	replicas := workspaceDeployment.Spec.Replicas
 	if replicas == nil || *replicas > 0 {
 		logger.Info("Stopping workspace")
-		patch := client.MergeFrom(workspaceDeployment.DeepCopy())
-		var replicasZero int32 = 0
-		workspaceDeployment.Spec.Replicas = &replicasZero
-		err = r.Patch(context.TODO(), workspaceDeployment, patch)
+		err := provision.ScaleDeploymentToZero(workspace, r.Client)
 		if err != nil && !k8sErrors.IsConflict(err) {
 			return reconcile.Result{}, err
 		}
-		return r.updateWorkspaceStatus(workspace, logger, status, reconcile.Result{}, nil)
+		return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
 	}
 
 	if workspaceDeployment.Status.Replicas == 0 {
 		logger.Info("Workspace stopped")
-		status.phase = dw.DevWorkspaceStatusStopped
+		changeToStoppedIfNeeded(&status)
 	}
-	return r.updateWorkspaceStatus(workspace, logger, status, reconcile.Result{}, nil)
+	return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
 }
 
 // failWorkspace marks a workspace as failed by setting relevant fields in the status struct.
 // These changes are not synced to cluster immediately, and are intended to be synced to the cluster via a deferred function
 // in the main reconcile loop. If needed, changes can be flushed to the cluster immediately via `updateWorkspaceStatus()`
 func (r *DevWorkspaceReconciler) failWorkspace(workspace *dw.DevWorkspace, msg string, logger logr.Logger, status *currentStatus) (reconcile.Result, error) {
-	logger.Info("Workspace start failed")
-	// Clean up cluster deployment
-	err := provision.ScaleDeploymentToZero(workspace, r.Client)
-	if err != nil {
-		// Return error here without setting phase to failed in order to retry cleaning the deployment
-		return reconcile.Result{}, err
-	}
 	status.phase = dw.DevWorkspaceStatusFailed
 	status.setConditionTrue(dw.DevWorkspaceFailedStart, msg)
+	if workspace.Spec.Started {
+		return reconcile.Result{Requeue: true}, nil
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -385,6 +401,32 @@ func getWorkspaceId(instance *dw.DevWorkspace) (string, error) {
 	return "workspace" + strings.Join(strings.Split(uid.String(), "-")[0:3], ""), nil
 }
 
+// Mapping the pod to the devworkspace
+func dwRelatedPodsHandler() handler.EventHandler {
+	podToDW := func(mapObj handler.MapObject) []reconcile.Request {
+		meta := mapObj.Meta
+		labels := meta.GetLabels()
+		if _, ok := labels[constants.DevWorkspaceNameLabel]; !ok {
+			return nil
+		}
+
+		//If the dewworkspace label does not exist, do no reconcile
+		if _, ok := labels[constants.DevWorkspaceIDLabel]; !ok {
+			return nil
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Name:      labels[constants.DevWorkspaceNameLabel],
+					Namespace: meta.GetNamespace(),
+				},
+			},
+		}
+	}
+	return &handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(podToDW)}
+}
+
 func (r *DevWorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// TODO: Set up indexing https://book.kubebuilder.io/cronjob-tutorial/controller-implementation.html#setup
 	return ctrl.NewControllerManagedBy(mgr).
@@ -396,6 +438,8 @@ func (r *DevWorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&batchv1.Job{}).
 		Owns(&controllerv1alpha1.DevWorkspaceRouting{}).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, dwRelatedPodsHandler()).
 		WithEventFilter(predicates).
+		WithEventFilter(podPredicates).
 		Complete(r)
 }

@@ -138,7 +138,7 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	}
 
 	// Prepare handling workspace status and condition
-	reconcileStatus := initCurrentStatus()
+	reconcileStatus := initStartingStatus()
 	clusterWorkspace := workspace.DeepCopy()
 	timingInfo := map[string]string{}
 	timing.SetTime(timingInfo, timing.DevWorkspaceStarted)
@@ -329,25 +329,16 @@ func (r *DevWorkspaceReconciler) stopWorkspace(workspace *dw.DevWorkspace, logge
 		Name:      common.DeploymentName(workspace.Status.DevWorkspaceId),
 		Namespace: workspace.Namespace,
 	}
-	status := initCurrentStatus()
-	if workspace.Status.Phase == dw.DevWorkspaceStatusFailed {
-		status.phase = dw.DevWorkspaceStatusFailed
-		status.copyConditionFromDevWorkspace(dw.DevWorkspaceFailedStart, workspace.Status)
-	}
+	status := initStoppingStatus(workspace.Status)
 	err := r.Get(context.TODO(), namespaceName, workspaceDeployment)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
-			if workspace.Status.Phase != dw.DevWorkspaceStatusFailed {
-				status.phase = dw.DevWorkspaceStatusStopped
-			}
+			changeToStoppedIfNeeded(&status)
 			return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
 		}
 		return reconcile.Result{}, err
 	}
 
-	if workspace.Status.Phase != dw.DevWorkspaceStatusFailed {
-		status.phase = dw.DevWorkspaceStatusStopping
-	}
 	replicas := workspaceDeployment.Spec.Replicas
 	if replicas == nil || *replicas > 0 {
 		logger.Info("Stopping workspace")
@@ -360,9 +351,7 @@ func (r *DevWorkspaceReconciler) stopWorkspace(workspace *dw.DevWorkspace, logge
 
 	if workspaceDeployment.Status.Replicas == 0 {
 		logger.Info("Workspace stopped")
-		if workspace.Status.Phase != dw.DevWorkspaceStatusFailed {
-			status.phase = dw.DevWorkspaceStatusStopped
-		}
+		changeToStoppedIfNeeded(&status)
 	}
 	return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
 }

@@ -139,7 +139,7 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	}
 
 	// Prepare handling workspace status and condition
-	reconcileStatus := initStartingStatus()
+	reconcileStatus := newStatusWithPhase(dw.DevWorkspaceStatusStarting)
 	clusterWorkspace := workspace.DeepCopy()
 	timingInfo := map[string]string{}
 	timing.SetTime(timingInfo, timing.DevWorkspaceStarted)
@@ -328,36 +328,55 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 }
 
 func (r *DevWorkspaceReconciler) stopWorkspace(workspace *dw.DevWorkspace, logger logr.Logger) (reconcile.Result, error) {
+	status := newStatus()
+	if workspace.Status.Phase == dw.DevWorkspaceStatusFailed {
+		status.phase = dw.DevWorkspaceStatusFailed
+		status.copyConditionFromDevWorkspace(dw.DevWorkspaceFailedStart, workspace.Status)
+	} else {
+		status.phase = dw.DevWorkspaceStatusStopping
+	}
+
+	stopped, err := r.doStop(workspace, logger)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if stopped {
+		if status.phase != dw.DevWorkspaceStatusFailed {
+			status.phase = dw.DevWorkspaceStatusStopped
+		}
+	}
+	return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
+}
+
+func (r *DevWorkspaceReconciler) doStop(workspace *dw.DevWorkspace, logger logr.Logger) (stopped bool, err error) {
 	workspaceDeployment := &appsv1.Deployment{}
 	namespaceName := types.NamespacedName{
 		Name:      common.DeploymentName(workspace.Status.DevWorkspaceId),
 		Namespace: workspace.Namespace,
 	}
-	status := initStoppingStatus(workspace.Status)
-	err := r.Get(context.TODO(), namespaceName, workspaceDeployment)
+	err = r.Get(context.TODO(), namespaceName, workspaceDeployment)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
-			changeToStoppedIfNeeded(&status)
-			return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
+			return true, nil
 		}
-		return reconcile.Result{}, err
+		return false, err
 	}
 
 	replicas := workspaceDeployment.Spec.Replicas
 	if replicas == nil || *replicas > 0 {
 		logger.Info("Stopping workspace")
-		err := provision.ScaleDeploymentToZero(workspace, r.Client)
+		err = provision.ScaleDeploymentToZero(workspace, r.Client)
 		if err != nil && !k8sErrors.IsConflict(err) {
-			return reconcile.Result{}, err
+			return false, err
 		}
-		return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
+		return false, nil
 	}
 
 	if workspaceDeployment.Status.Replicas == 0 {
-		logger.Info("Workspace stopped")
-		changeToStoppedIfNeeded(&status)
+		return true, nil
 	}
-	return r.updateWorkspaceStatus(workspace, logger, &status, reconcile.Result{}, nil)
+	return false, nil
 }
 
 // failWorkspace marks a workspace as failed by setting relevant fields in the status struct.

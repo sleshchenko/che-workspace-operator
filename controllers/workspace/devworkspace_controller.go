@@ -123,7 +123,7 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	// Stop failed workspaces
 	if workspace.Status.Phase == dw.DevWorkspaceStatusFailed && workspace.Spec.Started {
 		patch := []byte(`{"spec":{"started": false}}`)
-		err := r.Client.Patch(context.Background(), workspace, client.RawPatch(types.StrategicMergePatchType, patch))
+		err := r.Client.Patch(context.Background(), workspace, client.RawPatch(types.MergePatchType, patch))
 		if err != nil {
 			return reconcile.Result{}, err
 		}

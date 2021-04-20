@@ -294,19 +294,7 @@ func (r *DevWorkspaceReconciler) Reconcile(req ctrl.Request) (reconcileResult ct
 	deploymentStatus := provision.SyncDeploymentToCluster(workspace, allPodAdditions, serviceAcctName, clusterAPI)
 	if !deploymentStatus.Continue {
 		if deploymentStatus.FailStartup {
-			var message string
-			if deploymentStatus.Err != nil {
-				message = deploymentStatus.Err.Error()
-				if deploymentStatus.Message != "" {
-					message = message + ": " + deploymentStatus.Message
-				}
-				reqLogger.Info(message)
-			} else {
-				message = deploymentStatus.Message
-				reqLogger.Info(message)
-			}
-
-			return r.failWorkspace(workspace, fmt.Sprintf("DevWorkspace spec is invalid: %s", message), reqLogger, &reconcileStatus)
+			return r.failWorkspace(workspace, deploymentStatus.Info(), reqLogger, &reconcileStatus)
 		}
 		reqLogger.Info("Waiting on deployment to be ready")
 		reconcileStatus.setConditionFalse(DeploymentReady, "Waiting for workspace deployment")
@@ -384,6 +372,7 @@ func (r *DevWorkspaceReconciler) doStop(workspace *dw.DevWorkspace, logger logr.
 // These changes are not synced to cluster immediately, and are intended to be synced to the cluster via a deferred function
 // in the main reconcile loop. If needed, changes can be flushed to the cluster immediately via `updateWorkspaceStatus()`
 func (r *DevWorkspaceReconciler) failWorkspace(workspace *dw.DevWorkspace, msg string, logger logr.Logger, status *currentStatus) (reconcile.Result, error) {
+	logger.Info("DevWorkspace failed to start due: " + msg)
 	status.phase = dw.DevWorkspaceStatusFailed
 	status.setConditionTrue(dw.DevWorkspaceFailedStart, msg)
 	if workspace.Spec.Started {

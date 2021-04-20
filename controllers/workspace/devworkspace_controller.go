@@ -322,7 +322,10 @@ func (r *DevWorkspaceReconciler) stopWorkspace(workspace *dw.DevWorkspace, logge
 	status := newStatusWithPhase(dw.DevWorkspaceStatusStopping)
 	if workspace.Status.Phase == dw.DevWorkspaceStatusFailed {
 		status.phase = dw.DevWorkspaceStatusFailed
-		status.copyFailedStatusCondition(workspace.Status)
+		failedCondition := getConditionByType(workspace.Status.Conditions, dw.DevWorkspaceFailedStart)
+		if failedCondition != nil {
+			status.setCondition(dw.DevWorkspaceFailedStart, *failedCondition)
+		}
 	}
 
 	stopped, err := r.doStop(workspace, logger)

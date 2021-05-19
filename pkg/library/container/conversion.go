@@ -79,9 +79,42 @@ func devfileResourcesToContainerResources(devfileContainer *dw.ContainerComponen
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse memory limit %q: %w", memLimit, err)
 	}
+
+	memReq := devfileContainer.MemoryRequest
+	if memReq == "" {
+		memReq = "512Mi"
+	}
+	memReqQuantity, err := resource.ParseQuantity(memLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse memory limit %q: %w", memLimit, err)
+	}
+
+	cpuLimit := devfileContainer.CpuLimit
+	if cpuLimit == "" {
+		cpuLimit = "50m"
+	}
+	cpuLimitQuantity, err := resource.ParseQuantity(cpuLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse cpu limit %q: %w", cpuLimit, err)
+	}
+
+	cpuReq := devfileContainer.CpuRequest
+	if cpuReq == "" {
+		cpuReq = "512Mi"
+	}
+	cpuReqQuantity, err := resource.ParseQuantity(cpuLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse cpu limit %q: %w", cpuLimit, err)
+	}
+
 	return &v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			v1.ResourceMemory: memLimitQuantity,
+			v1.ResourceCPU:    cpuLimitQuantity,
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceMemory: memReqQuantity,
+			v1.ResourceCPU:    cpuReqQuantity,
 		},
 	}, nil
 }

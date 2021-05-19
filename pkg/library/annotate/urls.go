@@ -13,6 +13,8 @@
 package annotate
 
 import (
+	"strconv"
+
 	dw "github.com/devfile/api/v2/pkg/apis/workspaces/v1alpha2"
 	"github.com/devfile/api/v2/pkg/attributes"
 
@@ -33,6 +35,7 @@ func AddURLAttributesToEndpoints(workspace *dw.DevWorkspaceTemplateSpec, exposed
 					containerEndpoint.Attributes = attributes.Attributes{}
 				}
 				containerEndpoint.Attributes.PutString(constants.EndpointURLAttribute, exposedEndpoint.Url)
+				containerEndpoint.Attributes.PutString("port", strconv.Itoa(containerEndpoint.TargetPort))
 			}
 		}
 	}
